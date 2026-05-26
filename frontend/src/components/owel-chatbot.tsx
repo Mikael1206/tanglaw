@@ -50,7 +50,13 @@ export default function OwelChatbot() {
   ]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [sessionId, setSessionId] = useState<string>("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Generate a unique session ID on mount
+    setSessionId(Math.random().toString(36).substring(7));
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -58,7 +64,7 @@ export default function OwelChatbot() {
     }
   }, [messages, isOpen, isTyping]);
 
-  const handleSendMessage = (textToSend: string) => {
+  const handleSendMessage = async (textToSend: string) => {
     if (!textToSend.trim()) return;
 
     const userMsg: Message = {
@@ -71,25 +77,44 @@ export default function OwelChatbot() {
     setInput("");
     setIsTyping(true);
 
-    setTimeout(() => {
-      const matchingPrompt = PRELOADED_PROMPTS.find(
-        (p) => p.query.toLowerCase() === textToSend.toLowerCase() || p.label.toLowerCase() === textToSend.toLowerCase()
-      );
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          question: textToSend,
+          session_id: sessionId,
+        }),
+      });
 
-      const replyText = matchingPrompt
-        ? matchingPrompt.reply
-        : `Hoot! I've noted your question: "${textToSend}". As your AI assistant, I recommend browsing the Scholarships page or using the review engine for deeper guidance.`;
+      if (!response.ok) {
+        throw new Error("Failed to fetch response from Owel");
+      }
+
+      const data = await response.json();
 
       const owelMsg: Message = {
         id: `owel-${Date.now()}`,
         sender: "owel",
-        text: replyText,
+        text: data.answer,
         timestamp: new Date(),
       };
 
       setMessages((prev) => [...prev, owelMsg]);
+    } catch (error) {
+      console.error("Chatbot Error:", error);
+      const errorMsg: Message = {
+        id: `error-${Date.now()}`,
+        sender: "owel",
+        text: "Hoot! I'm having a bit of trouble connecting to my knowledge base right now. Please try again later.",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMsg]);
+    } finally {
       setIsTyping(false);
-    }, 900);
+    }
   };
 
   return (
