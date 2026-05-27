@@ -1,8 +1,13 @@
 "use client";
 
+/**
+ * Login page for the public authentication flow.
+ * Uses local storage to simulate an authenticated session.
+ */
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 import { LogIn, ArrowRight, CheckCircle2, ShieldAlert } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -14,7 +19,7 @@ export default function LoginPage() {
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [showOAuth, setShowOAuth] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
       setMessage({ type: "error", text: "Please fill out all required fields." });
@@ -24,12 +29,19 @@ export default function LoginPage() {
     setLoading(true);
     setMessage(null);
 
-    setTimeout(() => {
-      setLoading(false);
-      window.localStorage.setItem("tanglaw-auth", "true");
-      window.localStorage.setItem("tanglaw-user", email);
+    const result = await signIn("credentials", {
+      redirect: false,
+      email,
+      password,
+    });
+
+    if (result?.error) {
+      setMessage({ type: "error", text: result.error });
+    } else {
       router.push("/dashboard");
-    }, 1000);
+    }
+
+    setLoading(false);
   };
 
   return (

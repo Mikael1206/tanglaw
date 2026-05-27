@@ -3,12 +3,28 @@ import cors from "cors";
 import dotenv from "dotenv";
 import apiRouter from "./routes";
 
-dotenv.config();
+/**
+ * Entry point for the Tanglaw backend server.
+ * Configures middleware, routes, and error handling,
+ * then starts the Express HTTP listener.
+ */
+
+dotenv.config({ path: ".env.local" });
 
 const app = express();
 const port = Number(process.env.PORT ?? 4000);
+const frontendOrigin = process.env.FRONTEND_URL;
 
-app.use(cors());
+if (!frontendOrigin) {
+  throw new Error("FRONTEND_URL environment variable is required");
+}
+
+app.use(
+  cors({
+    origin: frontendOrigin,
+    credentials: true,
+  })
+);
 app.use(express.json());
 app.use("/api", apiRouter);
 

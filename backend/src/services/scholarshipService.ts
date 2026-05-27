@@ -1,5 +1,9 @@
 import { Scholarship } from "../models/scholarship";
 
+/**
+ * Service layer for scholarships.
+ * This file returns a fixed set of mock scholarships for frontend demonstration.
+ */
 export function getMockScholarships(): Scholarship[] {
   return [
     {

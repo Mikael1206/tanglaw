@@ -1,8 +1,13 @@
 "use client";
 
+/**
+ * Mini chatbot component for the dashboard.
+ * Uses a set of preloaded prompts and simple simulated responses.
+ */
 import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { X, Send, HelpCircle } from "lucide-react";
+import { createChatMessage, getChatMessages } from "@/lib/backend";
 
 interface Message {
   id: string;
@@ -53,12 +58,42 @@ export default function OwelChatbot() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    let active = true;
+
+    async function loadChatHistory() {
+      try {
+        const storedMessages = await getChatMessages();
+
+        if (!active) return;
+
+        if (storedMessages.length > 0) {
+          setMessages(
+            storedMessages.map((msg: any) => ({
+              id: msg.id,
+              sender: msg.role === "user" ? "user" : "owel",
+              text: msg.content,
+              timestamp: new Date(msg.createdAt),
+            }))
+          );
+        }
+      } catch (error) {
+        console.error("Failed to load chat history from backend:", error);
+      }
+    }
+
+    loadChatHistory();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (isOpen) {
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     }
   }, [messages, isOpen, isTyping]);
 
-  const handleSendMessage = (textToSend: string) => {
+  const handleSendMessage = async (textToSend: string) => {
     if (!textToSend.trim()) return;
 
     const userMsg: Message = {
@@ -71,7 +106,17 @@ export default function OwelChatbot() {
     setInput("");
     setIsTyping(true);
 
-    setTimeout(() => {
+    try {
+      await createChatMessage({
+        role: "user",
+        content: textToSend,
+        metadata: { source: "frontend" },
+      });
+    } catch (error) {
+      console.error("Failed to save user message:", error);
+    }
+
+    setTimeout(async () => {
       const matchingPrompt = PRELOADED_PROMPTS.find(
         (p) => p.query.toLowerCase() === textToSend.toLowerCase() || p.label.toLowerCase() === textToSend.toLowerCase()
       );
@@ -88,6 +133,17 @@ export default function OwelChatbot() {
       };
 
       setMessages((prev) => [...prev, owelMsg]);
+
+      try {
+        await createChatMessage({
+          role: "assistant",
+          content: replyText,
+          metadata: { source: "frontend", aiFallback: true },
+        });
+      } catch (error) {
+        console.error("Failed to save assistant message:", error);
+      }
+
       setIsTyping(false);
     }, 900);
   };

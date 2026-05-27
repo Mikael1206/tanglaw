@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Theme switcher component for the UI.
+ * Persists the selected theme to localStorage and updates CSS custom properties.
+ */
 import { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
 

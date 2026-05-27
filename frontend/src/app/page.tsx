@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Public landing page for the TANGLAW application.
+ * Presents product messaging, navigation, and hero content.
+ */
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";

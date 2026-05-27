@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Authenticated dashboard home page.
+ * Serves as the main hub for the student's scholarship tools.
+ */
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { BookOpen, ShieldCheck, Sparkles, LayoutDashboard } from "lucide-react";
