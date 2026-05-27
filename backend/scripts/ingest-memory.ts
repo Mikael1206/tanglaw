@@ -11,7 +11,7 @@ const __dirname = path.dirname(__filename);
 
 async function run() {
   const dataPath = path.join(__dirname, "..", "data");
-  const outputPath = path.join(__dirname, "..", "public", "vector_store.json");
+  const outputPath = path.join(__dirname, "..", "data", "vector_store.json");
 
   if (!fs.existsSync(dataPath)) {
     console.error("Data directory not found. Please create 'frontend/data' and add PDF files.");

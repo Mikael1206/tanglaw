@@ -78,7 +78,7 @@ export default function OwelChatbot() {
     setIsTyping(true);
 
     try {
-      const response = await fetch("/api/chat", {
+      const response = await fetch("http://localhost:4000/api/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
