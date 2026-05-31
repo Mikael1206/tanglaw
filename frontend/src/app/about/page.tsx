@@ -1,5 +1,8 @@
 "use client";
 
+/**
+ * About page describing the project goals and team members.
+ */
 import Image from "next/image";
 import { Users, BookOpen, Code, GraduationCap, ChevronLeft, ChevronRight } from "lucide-react";
 import { useRef } from "react";

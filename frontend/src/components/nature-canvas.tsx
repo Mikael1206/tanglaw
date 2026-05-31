@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Decorative background canvas used on public pages.
+ * Supports light/dark theme states and hides on dashboard pages.
+ */
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";

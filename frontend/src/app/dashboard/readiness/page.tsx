@@ -1,5 +1,8 @@
 "use client";
 
+/**
+ * Dashboard readiness page embedding the interactive quiz component.
+ */
 import ReadinessForm from "@/components/readiness-form";
 import { motion } from "framer-motion";
 

@@ -1,5 +1,8 @@
 "use client";
 
+/**
+ * Dashboard reviewer page with a simulated timed question bank and analytics.
+ */
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {

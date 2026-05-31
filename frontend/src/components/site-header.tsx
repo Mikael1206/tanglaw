@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Global site header shown on public pages.
+ * Hides itself when the user is inside dashboard routes.
+ */
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";

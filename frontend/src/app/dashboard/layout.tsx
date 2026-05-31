@@ -1,8 +1,13 @@
 "use client";
 
+/**
+ * Layout wrapper for dashboard pages.
+ * Applies secure guard, header navigation, and embedded chatbot UI.
+ */
 import Link from "next/link";
 import { LogOut, Home, Sparkles, BookOpen, ShieldCheck, MessageCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { signOut } from "next-auth/react";
 import AuthGuard from "@/components/AuthGuard";
 import ThemeChanger from "@/components/theme-changer";
 import OwelChatbot from "@/components/owel-chatbot";
@@ -14,9 +19,12 @@ export default function DashboardLayout({
 }>) {
   const router = useRouter();
 
-  const handleSignOut = () => {
-    window.localStorage.removeItem("tanglaw-auth");
-    window.localStorage.removeItem("tanglaw-user");
+  const handleSignOut = async () => {
+    try {
+      await signOut({ redirect: false });
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
     router.push("/login");
   };
 

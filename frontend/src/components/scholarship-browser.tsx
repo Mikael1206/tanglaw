@@ -1,7 +1,12 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+/**
+ * Scholarship discovery component used in the authenticated dashboard.
+ * Supports keyword search, program filtering, income constraints, and scholarship listings.
+ */
+import React, { useEffect, useState, useMemo } from "react";
 import { Search, SlidersHorizontal, ExternalLink, Filter, GraduationCap, DollarSign, Building2, BookOpen, AlertCircle } from "lucide-react";
+import { fetchScholarships } from "@/lib/backend";
 
 interface Scholarship {
   id: string;
@@ -9,176 +14,50 @@ interface Scholarship {
   provider: string;
   type: "Public" | "Private";
   incomeBracket: number; // Max annual family income (0 means any)
-  program: "STEM" | "Humanities" | "Medical-Allied" | "Any";
+  program: string;
   benefits: string[];
   requirements: string[];
   link: string;
 }
 
-const SCHOLARSHIPS_DATA: Scholarship[] = [
-  {
-    id: "1",
-    name: "DOST-SEI Undergraduate Scholarship",
-    provider: "Department of Science and Technology",
-    type: "Public",
-    incomeBracket: 0, // Any
-    program: "STEM",
-    benefits: [
-      "Full Tuition & school fees coverage (up to ₱40,000/yr)",
-      "Monthly Living Allowance (₱7,000/month)",
-      "Book & transportation subsidies",
-      "Group health insurance"
-    ],
-    requirements: [
-      "Natural-born Filipino citizen",
-      "GWA of 85% or higher",
-      "Belongs to STEM strand in high school (or top 5% of non-STEM class)",
-      "Must pass the DOST-SEI exam"
-    ],
-    link: "https://www.sei.dost.gov.ph"
-  },
-  {
-    id: "2",
-    name: "CHED Merit Scholarship Program (CMSP)",
-    provider: "Commission on Higher Education",
-    type: "Public",
-    incomeBracket: 400000,
-    program: "Any",
-    benefits: [
-      "Full Tuition subsidy (up to ₱120,000/yr for private; free in SUCs)",
-      "Stipend of ₱80,000 per academic year",
-      "Book and study grant allowance"
-    ],
-    requirements: [
-      "Filipino citizen",
-      "Combined family income of ₱400,000 or below",
-      "General Weighted Average (GWA) of 90% or above"
-    ],
-    link: "https://ched.gov.ph"
-  },
-  {
-    id: "3",
-    name: "SM Foundation College Scholarship",
-    provider: "SM Foundation",
-    type: "Private",
-    incomeBracket: 250000,
-    program: "STEM",
-    benefits: [
-      "Full Tuition & matriculation coverage",
-      "Monthly living stipend",
-      "Exclusive part-time job opportunities during breaks",
-      "Assured placement in SM Group of Companies after graduation"
-    ],
-    requirements: [
-      "Graduate of public high schools or SM-partner private schools",
-      "Annual family income not exceeding ₱250,000",
-      "General Weighted Average (GWA) of 88% or above in Grade 12"
-    ],
-    link: "https://www.sm-foundation.org"
-  },
-  {
-    id: "4",
-    name: "Manila City Educational Assistance",
-    provider: "City Government of Manila",
-    type: "Public",
-    incomeBracket: 200000,
-    program: "Any",
-    benefits: [
-      "₱5,000 educational cash aid per semester",
-      "Priority in local government internship positions"
-    ],
-    requirements: [
-      "Resident of Manila City for at least 3 years",
-      "Enrolled in state colleges/universities (SUCs) or local colleges",
-      "Parent must be a registered voter in Manila"
-    ],
-    link: "https://manila.gov.ph"
-  },
-  {
-    id: "5",
-    name: "Mega-Tech Computer Science Scholarship",
-    provider: "Mega-Tech Group Philippines",
-    type: "Private",
-    incomeBracket: 0, // Any
-    program: "STEM",
-    benefits: [
-      "100% Tuition & miscellaneous fees covered",
-      "Tech-pack allowance (high-spec laptop and accessories)",
-      "Guaranteed internship and 2-year employment contract after college"
-    ],
-    requirements: [
-      "Incoming 1st year BSCS, BSIT, or BSCpE student",
-      "Must maintain a semester GWA of 1.75 or better",
-      "Active portfolio showing mini coding projects is highly prioritized"
-    ],
-    link: "https://megatech-grants.org"
-  },
-  {
-    id: "6",
-    name: "Health-Care Alliance Foundation Grant",
-    provider: "Health-Care Alliance PH",
-    type: "Private",
-    incomeBracket: 300000,
-    program: "Medical-Allied",
-    benefits: [
-      "₱35,000 financial subsidy per semester",
-      "Clinical clerkship stipend and uniform allowances",
-      "Free reviewer materials for board exams"
-    ],
-    requirements: [
-      "Currently enrolled in Nursing, MedTech, or Pharmacy program",
-      "Annual household income below ₱300,000",
-      "Maintain a GPA of 2.25 or higher without failing grades"
-    ],
-    link: "https://healthcare-alliance.org"
-  },
-  {
-    id: "7",
-    name: "Humanities & Arts Excellence Fellowship",
-    provider: "Cultural Center Sponsoring Board",
-    type: "Private",
-    incomeBracket: 0, // Any
-    program: "Humanities",
-    benefits: [
-      "₱40,000 subsidy per school year",
-      "Fully sponsored publication and thesis printing grants",
-      "Free admission to writing conventions and artistic forums"
-    ],
-    requirements: [
-      "Enrolled in Literature, Fine Arts, History, or Philosophy programs",
-      "Submit a portfolio of 3 original essays or artistic drafts",
-      "Recommendation letter from the Department Chair"
-    ],
-    link: "https://humanities-fellows.ph"
-  },
-  {
-    id: "8",
-    name: "Tulong Dunong Program (TDP-TES)",
-    provider: "UniFAST & CHED",
-    type: "Public",
-    incomeBracket: 300000,
-    program: "Any",
-    benefits: [
-      "₱15,000 financial assistance per school year",
-      "Can be combined with local government subsidies"
-    ],
-    requirements: [
-      "Filipino tertiary student enrolled in CHED-recognized SUCs or LUCs",
-      "No other major active government educational scholarship",
-      "Passing grades in all subjects"
-    ],
-    link: "https://unifast.deped.gov.ph"
-  }
-];
-
 export default function ScholarshipBrowser() {
+  const [scholarships, setScholarships] = useState<Scholarship[]>([]);
+  const [loadingScholarships, setLoadingScholarships] = useState(true);
+  const [scholarshipError, setScholarshipError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadScholarships() {
+      try {
+        const backendScholarships = await fetchScholarships();
+        if (!active) return;
+        setScholarships(backendScholarships);
+      } catch (error) {
+        console.error("Failed to load scholarships from backend:", error);
+        if (active) {
+          setScholarshipError(error instanceof Error ? error.message : String(error));
+        }
+      } finally {
+        if (active) {
+          setLoadingScholarships(false);
+        }
+      }
+    }
+
+    loadScholarships();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [incomeLimit, setIncomeLimit] = useState<string>("all");
   const [scholarshipType, setScholarshipType] = useState<string>("all");
   const [programType, setProgramType] = useState<string>("all");
 
   const filteredScholarships = useMemo(() => {
-    return SCHOLARSHIPS_DATA.filter((item) => {
+    return scholarships.filter((item) => {
       // 1. Text Search
       const matchesSearch =
         item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Interactive readiness assessment form for the student dashboard.
+ * Presents timed quiz questions and generates a readiness score.
+ */
 import React, { useState, useEffect, useMemo } from "react";
 import { Play, RotateCcw, Timer, Award, CheckCircle2, AlertTriangle, BookMarked, HelpCircle, ChevronRight } from "lucide-react";
 

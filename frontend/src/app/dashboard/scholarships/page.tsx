@@ -1,5 +1,8 @@
 "use client";
 
+/**
+ * Dashboard scholarship page mounting the scholarship discovery browser.
+ */
 import ScholarshipBrowser from "@/components/scholarship-browser";
 import { motion } from "framer-motion";
 

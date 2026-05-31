@@ -1,9 +1,14 @@
+/**
+ * Root layout for the Next.js application.
+ * Configures fonts, metadata, global styles, and shared page chrome.
+ */
 import type { Metadata } from "next";
 import { Inter, Outfit } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
 import NatureCanvas from "@/components/nature-canvas";
 import SiteHeader from "@/components/site-header";
+import NextAuthProvider from "@/components/NextAuthProvider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -34,7 +39,9 @@ export default function RootLayout({
         <NatureCanvas />
         <SiteHeader />
 
-        <main className="flex-grow flex flex-col">{children}</main>
+        <NextAuthProvider>
+          <main className="flex-grow flex flex-col">{children}</main>
+        </NextAuthProvider>
 
         <footer className="bg-[color:var(--theme-component-backdrop)] border-t border-white/5 py-8 px-4 mt-auto">
           <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">

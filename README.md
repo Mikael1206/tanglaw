@@ -1,37 +1,25 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Tanglaw
 
-## Getting Started
+TANGLAW is an AI-powered scholarship navigation portal built with a Next.js frontend and an Express + TypeScript backend. The app combines a secure student dashboard, scholarship discovery tools, readiness assessment modules, and an AI-guided chat companion.
 
-First, run the development server:
+## Repository structure
+
+- `frontend/` — Next.js app with UI components, AI helpers, Supabase client setup, and dashboard pages.
+- `backend/` — Express API service with mock scholarship data, chat persistence endpoints, and Prisma client support.
+
+## Getting started
+
+### Frontend
 
 ```bash
+cd frontend
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Backend scaffolding
-
-The `backend/` folder contains a simple Express + TypeScript scaffold.
+### Backend
 
 ```bash
 cd backend
@@ -39,13 +27,54 @@ npm install
 npm run dev
 ```
 
-Available endpoints:
+Open [http://localhost:4000](http://localhost:4000) if the backend is configured to use port `4000`.
 
-- `GET /api/health`
-- `GET /api/scholarships`
+## Key features
 
-## Deploy on Vercel
+- Secure dashboard access using localStorage-based auth guard.
+- Scholarship browser with filtering and eligibility-focused recommendations.
+- Interactive readiness quiz and exam reviewer tools.
+- AI companion integration using LangChain tool calling.
+- Simple backend endpoints for health, scholarship mock data, and message persistence.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Frontend pages
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `/` — Landing page with product overview and navigation.
+- `/about` — Team, goals, and project pillars.
+- `/contact` — Contact form and support details.
+- `/login` and `/signup` — Authentication entry points.
+- `/dashboard` — Authenticated dashboard home.
+- `/dashboard/scholarships` — Scholarship search module.
+- `/dashboard/readiness` — Readiness assessment module.
+- `/dashboard/reviewer` — Exam review module.
+
+## Backend endpoints
+
+- `GET /api/health` — service health check.
+- `GET /api/scholarships` — returns mock scholarship metadata.
+- `POST /api/messages` — store a chat message in the database.
+- `GET /api/messages/:userId` — fetch user messages.
+
+## Deploy and build
+
+Use standard Next.js and Node scripts to build and deploy each directory independently.
+
+### Frontend build
+
+```bash
+cd frontend
+npm run build
+npm run start
+```
+
+### Backend build
+
+```bash
+cd backend
+npm run build
+npm start
+```
+
+## Notes
+
+The frontend currently uses simulated auth state in local storage and integrates with AI tools for advanced scholarship search and detail retrieval.

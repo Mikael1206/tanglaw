@@ -1,8 +1,13 @@
 "use client";
 
+/**
+ * Mini chatbot component for the dashboard.
+ * Uses a set of preloaded prompts and simple simulated responses.
+ */
 import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { X, Send, HelpCircle } from "lucide-react";
+import { createChatMessage, getChatMessages } from "@/lib/backend";
 
 interface Message {
   id: string;
@@ -50,12 +55,36 @@ export default function OwelChatbot() {
   ]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [sessionId, setSessionId] = useState<string>("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Generate a unique session ID on mount
-    setSessionId(Math.random().toString(36).substring(7));
+    let active = true;
+
+    async function loadChatHistory() {
+      try {
+        const storedMessages = await getChatMessages();
+
+        if (!active) return;
+
+        if (storedMessages.length > 0) {
+          setMessages(
+            storedMessages.map((msg: any) => ({
+              id: msg.id,
+              sender: msg.role === "user" ? "user" : "owel",
+              text: msg.content,
+              timestamp: new Date(msg.createdAt),
+            }))
+          );
+        }
+      } catch (error) {
+        console.error("Failed to load chat history from backend:", error);
+      }
+    }
+
+    loadChatHistory();
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -78,43 +107,45 @@ export default function OwelChatbot() {
     setIsTyping(true);
 
     try {
-      const response = await fetch("http://localhost:4000/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          question: textToSend,
-          session_id: sessionId,
-        }),
+      await createChatMessage({
+        role: "user",
+        content: textToSend,
+        metadata: { source: "frontend" },
       });
+    } catch (error) {
+      console.error("Failed to save user message:", error);
+    }
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch response from Owel");
-      }
+    setTimeout(async () => {
+      const matchingPrompt = PRELOADED_PROMPTS.find(
+        (p) => p.query.toLowerCase() === textToSend.toLowerCase() || p.label.toLowerCase() === textToSend.toLowerCase()
+      );
 
-      const data = await response.json();
+      const replyText = matchingPrompt
+        ? matchingPrompt.reply
+        : `Hoot! I've noted your question: "${textToSend}". As your AI assistant, I recommend browsing the Scholarships page or using the review engine for deeper guidance.`;
 
       const owelMsg: Message = {
         id: `owel-${Date.now()}`,
         sender: "owel",
-        text: data.answer,
+        text: replyText,
         timestamp: new Date(),
       };
 
       setMessages((prev) => [...prev, owelMsg]);
-    } catch (error) {
-      console.error("Chatbot Error:", error);
-      const errorMsg: Message = {
-        id: `error-${Date.now()}`,
-        sender: "owel",
-        text: "Hoot! I'm having a bit of trouble connecting to my knowledge base right now. Please try again later.",
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, errorMsg]);
-    } finally {
+
+      try {
+        await createChatMessage({
+          role: "assistant",
+          content: replyText,
+          metadata: { source: "frontend", aiFallback: true },
+        });
+      } catch (error) {
+        console.error("Failed to save assistant message:", error);
+      }
+
       setIsTyping(false);
-    }
+    }, 900);
   };
 
   return (

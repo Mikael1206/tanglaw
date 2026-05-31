@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Contact page with a support form and team contact details.
+ * This form currently simulates submission locally.
+ */
 import React, { useState } from "react";
 import { Mail, MapPin, Building2, Send, CheckCircle2 } from "lucide-react";
 

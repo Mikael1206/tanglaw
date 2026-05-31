@@ -1,20 +1,68 @@
 import { Request, Response } from "express";
-import { generateChatResponse } from "../services/chatService";
+import prisma from "../services/prismaClient";
 
-export const chat = async (req: Request, res: Response) => {
+type AuthenticatedRequest = Request & {
+  user?: {
+    id: string;
+    email: string;
+    name?: string | null;
+  };
+};
+
+/**
+ * Controller for chat persistence endpoints.
+ * Allows the frontend to store and retrieve chat messages for authenticated users.
+ */
+export const createMessage = async (req: Request, res: Response) => {
+  const authReq = req as AuthenticatedRequest;
+  const user = authReq.user;
+  const { role, content, metadata } = req.body;
+
+  if (!user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  if (!role || !content) {
+    return res.status(400).json({ error: "role and content are required" });
+  }
+
   try {
-    const { question, session_id } = req.body;
+    const msg = await prisma.message.create({
+      data: {
+        userId: user.id,
+        role,
+        content,
+        metadata,
+      },
+    });
+    res.json(msg);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "DB error" });
+  }
+};
 
-    if (!question || !session_id) {
-      return res.status(400).json({ error: "question and session_id are required." });
-    }
+export const getMessagesForUser = async (req: Request, res: Response) => {
+  const authReq = req as AuthenticatedRequest;
+  const user = authReq.user;
+  const { userId } = req.params;
 
-    const answer = await generateChatResponse(question, session_id);
-    
-    return res.json({ answer });
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Internal Server Error";
-    console.error("[Owel RAG] Error:", error);
-    return res.status(500).json({ error: message });
+  if (!user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  if (userId && userId !== user.id) {
+    return res.status(403).json({ error: "Forbidden: user mismatch" });
+  }
+
+  try {
+    const msgs = await prisma.message.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: "asc" },
+    });
+    res.json(msgs);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "DB error" });
   }
 };
