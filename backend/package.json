@@ -12,6 +12,11 @@
     "postinstall": "npx prisma generate"
   },
   "dependencies": {
+    "@langchain/classic": "^1.0.34",
+    "@langchain/community": "^1.1.29",
+    "@langchain/core": "^1.1.48",
+    "@langchain/openai": "^1.4.7",
+    "@langchain/textsplitters": "^1.0.1",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "@supabase/ssr": "^0.10.3",
