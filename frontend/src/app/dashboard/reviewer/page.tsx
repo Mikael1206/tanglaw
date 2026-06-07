@@ -1,5 +1,8 @@
 "use client";
 
+/**
+ * Dashboard reviewer page with a simulated timed question bank and analytics.
+ */
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
@@ -88,7 +91,7 @@ export default function ReviewerPage() {
         initial={{ opacity: 0, y: 24 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, amount: 0.35 }}
-        className="rounded-[2rem] border border-accent-muted/30 bg-white p-8 shadow-2xl"
+        className="rounded-2xl sm:rounded-[2rem] border border-accent-muted/30 bg-white p-4 sm:p-6 lg:p-8 shadow-2xl"
       >
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
@@ -100,7 +103,7 @@ export default function ReviewerPage() {
           </div>
           <div
             className={`rounded-3xl px-4 py-4 text-sm border shadow-sm ${
-              timeLeft <= 120 ? "border-rose-400 bg-rose-50 text-rose-700" : "border-accent-muted/40 bg-base-pastel text-zinc-700"
+              timeLeft <= 120 ? "border-rose-400 bg-rose-50 text-rose-700" : "border-accent-muted/40 bg-base-pastel text-[color:var(--theme-text-body)]"
             }`}
           >
             <div className="flex items-center gap-2 font-bold mb-2">
@@ -113,7 +116,7 @@ export default function ReviewerPage() {
       </motion.section>
 
       <div className="grid gap-6 xl:grid-cols-[280px_1fr]">
-        <aside className="rounded-[2rem] border border-accent-muted/30 bg-white p-6 shadow-2xl">
+        <aside className="rounded-2xl sm:rounded-[2rem] border border-accent-muted/30 bg-white p-4 sm:p-6 shadow-2xl">
           <div className="flex items-center justify-between mb-4">
             <div>
               <p className="text-[11px] uppercase tracking-[0.32em] text-zinc-500 font-bold">Question Map</p>
@@ -137,7 +140,7 @@ export default function ReviewerPage() {
                 ? "bg-primary text-white"
                 : answered
                 ? "bg-secondary text-white"
-                : "bg-base-pastel text-zinc-700";
+                : "bg-base-pastel text-[color:var(--theme-text-body)]";
 
               return (
                 <button
@@ -174,16 +177,16 @@ export default function ReviewerPage() {
             initial={{ opacity: 0, y: 24 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.3 }}
-            className="rounded-[2rem] border border-accent-muted/30 bg-white p-8 shadow-2xl"
+            className="rounded-2xl sm:rounded-[2rem] border border-accent-muted/30 bg-white p-4 sm:p-6 lg:p-8 shadow-2xl"
           >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="text-[11px] uppercase tracking-[0.32em] text-zinc-500 font-bold">Subject</p>
                 <h2 className="font-display text-2xl font-black text-zinc-900 mt-2">{currentQuestion.subject}</h2>
               </div>
-              <div className="rounded-3xl bg-base-pastel px-4 py-3 text-sm text-zinc-700 border border-accent-muted/40">
-                <p className="text-[10px] uppercase tracking-[0.28em] text-zinc-500">Question</p>
-                <p className="mt-1 text-lg font-black text-zinc-900">{currentQuestion.id}</p>
+              <div className="rounded-3xl bg-base-pastel px-4 py-3 text-sm text-[color:var(--theme-text-body)] border border-accent-muted/40">
+                <p className="text-[10px] uppercase tracking-[0.28em] text-[color:var(--theme-text-muted)]">Question</p>
+                <p className="mt-1 text-lg font-black text-[color:var(--theme-typography-main)]">{currentQuestion.id}</p>
               </div>
             </div>
 
@@ -199,7 +202,7 @@ export default function ReviewerPage() {
                   <label
                     key={option}
                     className={`group flex cursor-pointer flex-col rounded-3xl border px-4 py-4 transition-all ${
-                      selected ? "border-primary bg-primary text-white shadow-lg" : "border-accent-muted/40 bg-base-light text-zinc-900 hover:border-primary hover:bg-primary/5"
+                      selected ? "border-primary bg-primary text-white shadow-lg" : "border-accent-muted/40 bg-base-light text-[color:var(--theme-typography-main)] hover:border-primary hover:bg-primary/5"
                     }`}
                   >
                     <input
@@ -247,7 +250,7 @@ export default function ReviewerPage() {
             viewport={{ once: true, amount: 0.3 }}
             className="grid gap-6 md:grid-cols-2"
           >
-            <div className="rounded-[2rem] border border-accent-muted/30 bg-white p-6 shadow-2xl">
+            <div className="rounded-2xl sm:rounded-[2rem] border border-accent-muted/30 bg-white p-4 sm:p-6 shadow-2xl">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-[11px] uppercase tracking-[0.3em] text-zinc-500 font-bold">Progress</p>
@@ -262,7 +265,7 @@ export default function ReviewerPage() {
               </div>
               <p className="mt-3 text-xs uppercase tracking-[0.28em] text-zinc-500">{answeredCount} items answered out of {totalCount}</p>
             </div>
-            <div className="rounded-[2rem] border border-accent-muted/30 bg-white p-6 shadow-2xl">
+            <div className="rounded-2xl sm:rounded-[2rem] border border-accent-muted/30 bg-white p-4 sm:p-6 shadow-2xl">
               <div className="flex items-center gap-3 mb-4">
                 <BookOpen className="h-5 w-5 text-primary" />
                 <div>
@@ -295,7 +298,7 @@ export default function ReviewerPage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-[2rem] border border-accent-muted/30 bg-[#f6fff0] p-6 shadow-2xl"
+          className="rounded-2xl sm:rounded-[2rem] border border-accent-muted/30 bg-[#f6fff0] p-4 sm:p-6 shadow-2xl"
         >
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">

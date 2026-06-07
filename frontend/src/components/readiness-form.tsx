@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Interactive readiness assessment form for the student dashboard.
+ * Presents timed quiz questions and generates a readiness score.
+ */
 import React, { useState, useEffect, useMemo } from "react";
 import { Play, RotateCcw, Timer, Award, CheckCircle2, AlertTriangle, BookMarked, HelpCircle, ChevronRight } from "lucide-react";
 
@@ -312,7 +316,7 @@ export default function ReadinessForm() {
     } else {
       return {
         level: "Needs Intensive Improvement",
-        color: "bg-accent-rose/70 border-red-300 text-red-900",
+        color: "bg-accent-rose/50 border-accent-rose text-[color:var(--theme-text-body)]",
         icon: <AlertTriangle className="h-10 w-10 text-red-600" />,
         text: "Don't worry! This is a roadmap indicator. Focus on targeted study modules to strengthen your primary vocabulary, mathematical formulas, and scientific facts."
       };
@@ -342,10 +346,10 @@ export default function ReadinessForm() {
     <div className="w-full max-w-3xl mx-auto px-4 py-8 font-sans">
       {/* 1. Setup Configuration Layer */}
       {!quizStarted && (
-        <section className="bg-base-pastel border-2 border-accent-muted/60 rounded-2xl p-8 shadow-xl animate-fade-in">
+        <section className="bg-[color:var(--theme-surface)]/80 border-2 border-accent-muted/60 rounded-2xl p-4 sm:p-6 lg:p-8 shadow-xl animate-fade-in">
           <div className="text-center mb-8">
             <h2 className="text-2xl font-black text-text-primary tracking-tight">Interactive Readiness Check</h2>
-            <p className="text-sm text-zinc-600 mt-2">
+            <p className="text-sm text-[color:var(--theme-text-body)] mt-2">
               Gamified timed mock-assessment to map your academic strengths before applying for grants.
             </p>
           </div>
@@ -366,7 +370,7 @@ export default function ReadinessForm() {
                       className={`p-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
                         isChecked
                         ? "bg-primary border-primary-hover text-white shadow-sm"
-                          : "bg-white border-accent-periwinkle/60 text-zinc-500 hover:border-accent-periwinkle"
+                          : "bg-[color:var(--theme-canvas)] border-accent-periwinkle/60 text-[color:var(--theme-text-muted)] hover:border-accent-periwinkle"
                       }`}
                     >
                       {subj}
@@ -382,7 +386,7 @@ export default function ReadinessForm() {
                 <label className="text-sm font-bold text-text-primary">
                   Number of Items:
                 </label>
-                <span className="text-xs bg-white px-2.5 py-1 rounded-full border border-accent-periwinkle font-black text-text-primary">
+                <span className="text-xs bg-[color:var(--theme-canvas)] px-2.5 py-1 rounded-full border border-accent-periwinkle font-black text-text-primary">
                   {itemCount} Questions
                 </span>
               </div>
@@ -393,9 +397,9 @@ export default function ReadinessForm() {
                 step="5"
                 value={itemCount}
                 onChange={(e) => setItemCount(parseInt(e.target.value, 10))}
-                className="w-full h-2 bg-white rounded-lg appearance-none cursor-pointer accent-primary border border-accent-periwinkle"
+                className="w-full h-2 bg-[color:var(--theme-surface)] rounded-lg appearance-none cursor-pointer accent-primary border border-accent-periwinkle"
               />
-              <div className="flex justify-between text-[10px] text-zinc-500 font-bold px-1">
+              <div className="flex justify-between text-[10px] text-[color:var(--theme-text-muted)] font-bold px-1">
                 <span>5 Items</span>
                 <span>10 Items</span>
                 <span>15 Items</span>
@@ -409,11 +413,11 @@ export default function ReadinessForm() {
                 <label className="text-sm font-bold text-text-primary">
                   Difficulty Tier (1-5):
                 </label>
-                <span className="text-xs bg-white px-2.5 py-1 rounded-full border border-accent-periwinkle font-black text-text-primary">
+                <span className="text-xs bg-[color:var(--theme-canvas)] px-2.5 py-1 rounded-full border border-accent-periwinkle font-black text-text-primary">
                   Level {selectedDifficulty}
                 </span>
               </div>
-              <div className="grid grid-cols-5 gap-1.5 bg-white p-1 rounded-xl border border-accent-periwinkle">
+              <div className="grid grid-cols-5 gap-1.5 bg-[color:var(--theme-surface)] p-1 rounded-xl border border-accent-periwinkle">
                 {[1, 2, 3, 4, 5].map((lvl) => (
                   <button
                     key={lvl}
@@ -421,7 +425,7 @@ export default function ReadinessForm() {
                     className={`py-2 rounded-lg text-xs font-black transition-all cursor-pointer ${
                       selectedDifficulty === lvl
                         ? "bg-primary text-white shadow-sm"
-                        : "text-zinc-400 hover:text-zinc-700"
+                        : "text-[color:var(--theme-text-muted)] hover:text-[color:var(--theme-text-body)]"
                     }`}
                   >
                     {lvl}
@@ -443,24 +447,24 @@ export default function ReadinessForm() {
 
       {/* 2. Active Quiz Board */}
       {quizStarted && !quizFinished && activeQuestions.length > 0 && (
-        <section className="bg-white border-2 border-accent-muted/40 rounded-2xl shadow-xl overflow-hidden animate-fade-in">
+        <section className="bg-[color:var(--theme-surface)] border-2 border-accent-muted/40 rounded-2xl shadow-xl overflow-hidden animate-fade-in">
           {/* Header Progress and Timer */}
-          <div className="bg-base-pastel px-6 py-4 flex items-center justify-between border-b border-accent-periwinkle">
+          <div className="bg-[color:var(--theme-canvas)] px-4 sm:px-6 py-4 flex items-center justify-between border-b border-accent-periwinkle">
             <div className="space-y-1">
-              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+              <span className="text-[10px] font-bold text-[color:var(--theme-text-muted)] uppercase tracking-widest">
                 Question {currentIndex + 1} of {activeQuestions.length}
               </span>
               <div className="flex items-center gap-2">
-                <span className="text-xs bg-white border border-accent-periwinkle/80 px-2 py-0.5 rounded-full font-bold text-text-primary">
+                <span className="text-xs bg-[color:var(--theme-canvas)] border border-accent-periwinkle/80 px-2 py-0.5 rounded-full font-bold text-text-primary">
                   {activeQuestions[currentIndex].subject}
                 </span>
-                <span className="text-[10px] text-zinc-500">
+                <span className="text-[10px] text-[color:var(--theme-text-muted)]">
                   Difficulty Level {activeQuestions[currentIndex].difficulty}
                 </span>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-accent-periwinkle">
+            <div className="flex items-center gap-2 bg-[color:var(--theme-canvas)] px-3 py-1.5 rounded-full border border-accent-periwinkle">
               <Timer className={`h-4 w-4 ${timeLeft < 10 ? "text-red-500 animate-pulse" : "text-text-primary"}`} />
               <span className={`text-sm font-black ${timeLeft < 10 ? "text-red-500" : "text-text-primary"}`}>
                 {timeLeft}s
@@ -469,7 +473,7 @@ export default function ReadinessForm() {
           </div>
 
           {/* Time Bar indicator */}
-          <div className="w-full bg-zinc-100 h-1">
+          <div className="w-full bg-[color:var(--theme-borders-system)]/25 h-1">
             <div
               className={`h-full transition-all duration-1000 ${timeLeft < 10 ? "bg-red-500" : "bg-primary-hover"}`}
               style={{ width: `${(timeLeft / 45) * 100}%` }}
@@ -477,8 +481,8 @@ export default function ReadinessForm() {
           </div>
 
           {/* Main Question Body */}
-          <div className="p-8">
-            <h3 className="text-lg font-bold text-text-primary mb-6 leading-relaxed">
+          <div className="p-4 sm:p-6 lg:p-8">
+            <h3 className="text-base sm:text-lg font-bold text-text-primary mb-6 leading-relaxed">
               {activeQuestions[currentIndex].questionText}
             </h3>
 
@@ -492,14 +496,14 @@ export default function ReadinessForm() {
                     onClick={() => handleSelectOption(idx)}
                     className={`w-full text-left p-4 rounded-xl border-2 transition-all flex items-center gap-3 cursor-pointer ${
                       isSelected
-                        ? "bg-base-pastel border-accent-muted text-text-primary font-bold shadow-sm"
-                        : "bg-white border-zinc-200 text-zinc-700 hover:border-accent-periwinkle hover:bg-base-light/10"
+                        ? "bg-[color:var(--theme-surface)]/80 border-accent-muted text-text-primary font-bold shadow-sm"
+                        : "bg-[color:var(--theme-surface)] border-accent-muted/30 text-[color:var(--theme-text-body)] hover:border-accent-periwinkle hover:bg-[color:var(--theme-canvas)]"
                     }`}
                   >
                     <span className={`h-6 w-6 rounded-full flex items-center justify-center border text-xs font-bold ${
                       isSelected
                         ? "bg-primary border-primary-hover text-white"
-                        : "border-zinc-300 bg-zinc-50 text-zinc-500"
+                        : "border-white/10 bg-[color:var(--theme-canvas)]/90 text-[color:var(--theme-text-muted)]"
                     }`}>
                       {String.fromCharCode(65 + idx)}
                     </span>
@@ -511,14 +515,14 @@ export default function ReadinessForm() {
           </div>
 
           {/* Footer Controls */}
-          <div className="bg-zinc-50 border-t border-zinc-100 px-8 py-4 flex justify-between items-center">
+          <div className="bg-[color:var(--theme-canvas)] border-t border-white/10 px-4 sm:px-8 py-4 flex flex-col sm:flex-row justify-between items-center gap-3">
             <p className="text-[11px] text-zinc-400">
               * Click an option above to select. Time resets each item.
             </p>
             <button
               onClick={handleNextQuestion}
               disabled={selectedAnswers[currentIndex] === undefined}
-              className="flex items-center gap-1.5 bg-primary disabled:bg-zinc-200 disabled:text-zinc-400 text-white px-5 py-2.5 rounded-xl text-xs font-bold border border-accent-muted shadow-sm hover:bg-primary-hover transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 bg-primary text-white px-5 py-2.5 rounded-xl text-xs font-bold border border-accent-muted shadow-sm hover:bg-primary-hover transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {currentIndex < activeQuestions.length - 1 ? (
                 <>Next Item <ChevronRight className="h-4 w-4" /></>
@@ -532,32 +536,32 @@ export default function ReadinessForm() {
 
       {/* 3. Evaluation and Score Results Modal */}
       {quizFinished && (
-        <section className="bg-white border-2 border-accent-muted/40 rounded-2xl shadow-xl overflow-hidden animate-fade-in">
+        <section className="bg-[color:var(--theme-surface)] border-2 border-accent-muted/40 rounded-2xl shadow-xl overflow-hidden animate-fade-in">
           {/* Top banner */}
-          <div className="bg-base-pastel p-8 border-b border-accent-periwinkle text-center">
-            <div className="inline-flex p-4 bg-white rounded-full shadow-md border-2 border-accent-periwinkle mb-4">
+          <div className="bg-[color:var(--theme-surface)]/80 p-4 sm:p-6 lg:p-8 border-b border-accent-periwinkle text-center">
+            <div className="inline-flex p-4 bg-[color:var(--theme-surface)] rounded-full shadow-md border-2 border-accent-periwinkle mb-4">
               <Award className="h-12 w-12 text-primary-hover animate-bounce" />
             </div>
             <h2 className="text-2xl font-black text-text-primary tracking-tight">Assessment Completed</h2>
-            <p className="text-xs text-zinc-500 font-bold uppercase tracking-widest mt-1">
+            <p className="text-xs text-[color:var(--theme-text-muted)] font-bold uppercase tracking-widest mt-1">
               Tanglaw Competency Evaluator
             </p>
           </div>
 
-          <div className="p-8 space-y-6">
+          <div className="p-4 sm:p-6 lg:p-8 space-y-6">
             {/* Score circle / level */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
               <div className="text-center p-6 bg-base-light/35 border border-accent-periwinkle rounded-2xl">
-                <span className="text-xs font-bold text-zinc-500 block uppercase mb-1">Your Score</span>
+                <span className="text-xs font-bold text-[color:var(--theme-text-muted)] block uppercase mb-1">Your Score</span>
                 <span className="text-4xl font-black text-text-primary">
-                  {score} <span className="text-lg text-zinc-500 font-normal">/ {activeQuestions.length}</span>
+                  {score} <span className="text-lg text-[color:var(--theme-text-muted)] font-normal">/ {activeQuestions.length}</span>
                 </span>
-                <span className="block text-xs text-zinc-600 font-semibold mt-1">
+                <span className="block text-xs text-[color:var(--theme-text-body)] font-semibold mt-1">
                   ({scorePercentage}% accuracy)
                 </span>
               </div>
 
-              <div className="md:col-span-2 p-6 rounded-2xl border-2 flex gap-4 items-start bg-zinc-50">
+              <div className="md:col-span-2 p-6 rounded-2xl border-2 flex gap-4 items-start bg-[color:var(--theme-canvas)]">
                 <div className="mt-1 flex-shrink-0">
                   {readinessDetails.icon}
                 </div>
@@ -573,11 +577,11 @@ export default function ReadinessForm() {
             </div>
 
             {/* Recommendations segment */}
-            <div className="bg-base-pastel/50 border border-accent-periwinkle rounded-2xl p-6">
+            <div className="bg-[color:var(--theme-canvas)]/50 border border-accent-periwinkle rounded-2xl p-6">
               <h3 className="text-sm font-bold text-text-primary mb-3 flex items-center gap-1.5">
                 <BookMarked className="h-4 w-4" /> Targeted Study Recommendations:
               </h3>
-              <ul className="text-xs text-zinc-700 space-y-2">
+              <ul className="text-xs text-[color:var(--theme-text-body)] space-y-2">
                 {topicRecommendations.map((rec, index) => (
                   <li key={index} className="flex items-start gap-2">
                     <span className="h-2 w-2 rounded-full bg-accent-rose mt-1 flex-shrink-0"></span>

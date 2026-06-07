@@ -1,10 +1,16 @@
 "use client";
 
+/**
+ * Signup page for the public authentication flow.
+ * Creates a simulated user session in local storage.
+ */
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { UserPlus, ArrowLeft, CheckCircle2, ShieldAlert } from "lucide-react";
 import { motion } from "framer-motion";
+import { signupAccount } from "@/lib/backend";
+import { signIn } from "next-auth/react";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -15,7 +21,7 @@ export default function SignupPage() {
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [showOAuth, setShowOAuth] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName || !email || !password) {
       setMessage({ type: "error", text: "Please fill out all required fields." });
@@ -25,12 +31,27 @@ export default function SignupPage() {
     setLoading(true);
     setMessage(null);
 
-    setTimeout(() => {
+    try {
+      await signupAccount(fullName, email, password);
+      const signInResult = await signIn("credentials", {
+        redirect: false,
+        email,
+        password,
+      });
+
+      if (signInResult?.error) {
+        setMessage({ type: "error", text: signInResult.error });
+      } else {
+        router.push("/dashboard");
+      }
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Unable to create account.",
+      });
+    } finally {
       setLoading(false);
-      window.localStorage.setItem("tanglaw-auth", "true");
-      window.localStorage.setItem("tanglaw-user", fullName || email);
-      router.push("/dashboard");
-    }, 1000);
+    }
   };
 
   return (

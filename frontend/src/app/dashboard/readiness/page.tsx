@@ -1,5 +1,8 @@
 "use client";
 
+/**
+ * Dashboard readiness page embedding the interactive quiz component.
+ */
 import ReadinessForm from "@/components/readiness-form";
 import { motion } from "framer-motion";
 
@@ -10,7 +13,7 @@ export default function DashboardReadinessPage() {
         initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, amount: 0.4 }}
-        className="rounded-[2rem] border border-accent-muted/30 bg-white p-8 shadow-2xl"
+        className="rounded-2xl sm:rounded-[2rem] border border-accent-muted/30 bg-white p-4 sm:p-6 lg:p-8 shadow-2xl"
       >
         <p className="text-[11px] uppercase tracking-[0.3em] text-zinc-500 font-bold">Interactive Readiness Check</p>
         <h1 className="font-display text-3xl font-black text-zinc-900 mt-3">Secure evaluation and study readiness</h1>

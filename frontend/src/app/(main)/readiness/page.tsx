@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Public redirect page for the branded readiness route.
+ * Sends unauthenticated visitors to the login page.
+ */
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 

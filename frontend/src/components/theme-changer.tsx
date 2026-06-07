@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Theme switcher component for the UI.
+ * Persists the selected theme to localStorage and updates CSS custom properties.
+ */
 import { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
 
@@ -23,6 +27,11 @@ const THEMES: Record<string, { label: string; icon: "sun" | "moon"; values: Reco
       "--theme-text-body": "#334155",
       "--theme-text-muted": "#94A3B8",
       "--theme-background": "#CBDF90",
+      "--theme-base-pastel": "#EAF0D8",
+      "--theme-base-light": "#F7F9EF",
+      "--theme-accent-muted": "#A0B4A8",
+      "--theme-accent-periwinkle": "#B8C9E8",
+      "--theme-accent-rose": "#E8C4C4",
     },
   },
   dark: {
@@ -42,6 +51,11 @@ const THEMES: Record<string, { label: string; icon: "sun" | "moon"; values: Reco
       "--theme-text-body": "#E2E8F0",
       "--theme-text-muted": "#94A3B8",
       "--theme-background": "#0B132B",
+      "--theme-base-pastel": "#1A2744",
+      "--theme-base-light": "#151F38",
+      "--theme-accent-muted": "#4A5A50",
+      "--theme-accent-periwinkle": "#3A4F7A",
+      "--theme-accent-rose": "#5A3A3A",
     },
   },
 };

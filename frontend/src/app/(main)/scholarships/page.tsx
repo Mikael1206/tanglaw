@@ -1,5 +1,8 @@
 "use client";
 
+/**
+ * Public placeholder page that redirects users to login when they try to access scholarship content.
+ */
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 

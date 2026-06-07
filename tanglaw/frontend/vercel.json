@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "buildCommand": "prisma generate && npm run build",
+  "outputDirectory": ".next",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "functions": {
+    "src/app/api/**/route.ts": {
+      "memory": 512,
+      "maxDuration": 60
+    }
+  }
+}

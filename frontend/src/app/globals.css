@@ -9,6 +9,11 @@
   --color-typography-secondary: var(--theme-typography-secondary, #334155);
   --color-borders-system: var(--theme-borders-system, #7F9C96);
   --color-text-primary: var(--theme-text-primary, #1B4079);
+  --color-base-pastel: var(--theme-base-pastel, #EAF0D8);
+  --color-base-light: var(--theme-base-light, #F7F9EF);
+  --color-accent-muted: var(--theme-accent-muted, #A0B4A8);
+  --color-accent-periwinkle: var(--theme-accent-periwinkle, #B8C9E8);
+  --color-accent-rose: var(--theme-accent-rose, #E8C4C4);
 }
 
 :root {
@@ -27,6 +32,11 @@
   --theme-surface: #F4F9E2;
   --theme-text-body: #334155;
   --theme-text-muted: #94A3B8;
+  --theme-base-pastel: #EAF0D8;
+  --theme-base-light: #F7F9EF;
+  --theme-accent-muted: #A0B4A8;
+  --theme-accent-periwinkle: #B8C9E8;
+  --theme-accent-rose: #E8C4C4;
 }
 
 @keyframes fade-in {
