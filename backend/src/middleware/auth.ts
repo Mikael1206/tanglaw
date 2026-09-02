@@ -1,17 +1,6 @@
 import { NextFunction, Request, Response } from "express";
-import jwt from "jsonwebtoken";
-import prisma from "../services/prismaClient";
-
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-  throw new Error("JWT_SECRET environment variable is required");
-}
-
-type JwtPayload = {
-  userId: string;
-  email: string;
-  name?: string | null;
-};
+import { getUserById } from "../services/supabaseUserDb";
+import { verifyAuthToken } from "../services/authToken";
 
 export type AuthenticatedRequest = Request & {
   user?: {
@@ -30,8 +19,8 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
   }
 
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as JwtPayload;
-    const user = await prisma.user.findUnique({ where: { id: payload.userId } });
+    const payload = verifyAuthToken(token);
+    const user = await getUserById(payload.userId);
 
     if (!user) {
       return res.status(401).json({ error: "Invalid token user" });

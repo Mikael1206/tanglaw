@@ -1,19 +1,21 @@
-const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+import { BACKEND_UNAUTHORIZED_EVENT } from "./auth-constants";
+import { getAuthToken, setAuthToken } from "./auth-storage";
+
+const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL?.trim().replace(/\/+$/, "");
 
 if (!backendUrl) {
   throw new Error("Missing NEXT_PUBLIC_BACKEND_URL in frontend environment");
 }
 
 const apiBase = `${backendUrl}/api`;
-const AUTH_TOKEN_KEY = "tanglaw-token";
-
 export interface BackendScholarship {
   id: string;
   name: string;
   provider: string;
   type: "Public" | "Private";
   incomeBracket: number;
-  program: string;
+  minGwa: number;
+  programCategories: string[];
   benefits: string[];
   requirements: string[];
   link: string;
@@ -36,25 +38,28 @@ export interface BackendMessagePayload {
 export interface BackendUser {
   id: string;
   email: string;
-  name?: string;
+  name?: string | null;
 }
 
-function getStoredToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(AUTH_TOKEN_KEY);
+export interface BackendQuestion {
+  id: number;
+  subject: "Mathematics" | "Science" | "English" | "Filipino" | "Logical Reasoning";
+  difficulty: number;
+  questionText: string;
+  options: string[];
+  correctAnswer: number;
 }
 
-function setStoredToken(token: string | null) {
-  if (typeof window === "undefined") return;
-  if (token) {
-    window.localStorage.setItem(AUTH_TOKEN_KEY, token);
-  } else {
-    window.localStorage.removeItem(AUTH_TOKEN_KEY);
-  }
-}
+const SUBJECT_TO_QUESTION_TYPE: Record<string, string> = {
+  Mathematics: "MATH",
+  Science: "SCIENCE",
+  English: "ENGLISH",
+  Filipino: "FILIPINO",
+  "Logical Reasoning": "LOGIC",
+};
 
 async function authorizedFetch(input: RequestInfo, init: RequestInit = {}) {
-  const token = getStoredToken();
+  const token = getAuthToken();
   const headers = new Headers(init.headers ?? {});
   headers.set("Content-Type", "application/json");
   if (token) {
@@ -63,6 +68,13 @@ async function authorizedFetch(input: RequestInfo, init: RequestInit = {}) {
 
   const response = await fetch(input, { ...init, headers });
   if (!response.ok) {
+    if (response.status === 401) {
+      setAuthToken(null);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event(BACKEND_UNAUTHORIZED_EVENT));
+      }
+      throw new Error("Your session has expired. Please sign in again.");
+    }
     const errorText = await response.text();
     throw new Error(`Request failed ${response.status}: ${response.statusText} ${errorText}`);
   }
@@ -83,24 +95,6 @@ export async function signupAccount(fullName: string, email: string, password: s
   }
 
   const payload = await response.json();
-  setStoredToken(payload.token);
-  return payload.user;
-}
-
-export async function loginUser(email: string, password: string): Promise<BackendUser> {
-  const response = await fetch(`${apiBase}/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Login failed: ${response.status} ${response.statusText} ${errorText}`);
-  }
-
-  const payload = await response.json();
-  setStoredToken(payload.token);
   return payload.user;
 }
 
@@ -108,7 +102,7 @@ export async function logoutUser(): Promise<void> {
   await authorizedFetch(`${apiBase}/auth/logout`, {
     method: "POST",
   });
-  setStoredToken(null);
+  setAuthToken(null);
 }
 
 export async function getCurrentUser(): Promise<BackendUser> {
@@ -117,7 +111,28 @@ export async function getCurrentUser(): Promise<BackendUser> {
 }
 
 export async function fetchScholarships(): Promise<BackendScholarship[]> {
-  const payload = await authorizedFetch(`${apiBase}/scholarships`);
+  const payload = await authorizedFetch(`${apiBase}/scholarships?pageSize=100`);
+  return payload.data ?? [];
+}
+
+export async function fetchQuestions(params: {
+  mode: "diagnostic" | "mock";
+  subjects?: string[];
+  difficulty?: number[];
+  count?: number;
+}): Promise<BackendQuestion[]> {
+  const query = new URLSearchParams({ mode: params.mode });
+  if (params.subjects?.length) {
+    query.set("subjects", params.subjects.map((subject) => SUBJECT_TO_QUESTION_TYPE[subject] ?? subject).join(","));
+  }
+  if (params.difficulty?.length) {
+    query.set("difficulty", params.difficulty.join(","));
+  }
+  if (params.count) {
+    query.set("count", String(params.count));
+  }
+
+  const payload = await authorizedFetch(`${apiBase}/questions?${query.toString()}`);
   return payload.data ?? [];
 }
 
@@ -132,7 +147,7 @@ export async function createChatMessage(payload: BackendMessagePayload): Promise
   });
 }
 
-export async function sendChatMessage(question: string): Promise<{ answer: string }> {
+export async function sendChatMessage(question: string): Promise<{ answer: string; remaining?: number; limit?: number; code?: string }> {
   return authorizedFetch(`${apiBase}/chat`, {
     method: "POST",
     body: JSON.stringify({ question }),

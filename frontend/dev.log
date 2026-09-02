@@ -1,0 +1,27 @@
+
+> tanglaw@0.1.0 dev
+> next dev
+
+⚠ Port 3000 is in use by an unknown process, using available port 3001 instead.
+▲ Next.js 16.2.6 (Turbopack)
+- Local:         http://localhost:3001
+- Network:       http://192.168.1.7:3001
+- Environments: .env.local
+✓ Ready in 28.2s
+⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /home/yushihiro/package-lock.json as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * /home/yushihiro/Documents/PROJECTS/tanglaw/frontend/package-lock.json
+   * /home/yushihiro/Documents/PROJECTS/tanglaw/package-lock.json
+
+⨯ Another next dev server is already running.
+
+- Local:        http://localhost:3000
+- PID:          277761
+- Dir:          /home/yushihiro/Documents/PROJECTS/tanglaw/frontend
+- Log:          .next/dev/logs/next-development.log
+
+Run kill 277761 to stop it.
+[?25h

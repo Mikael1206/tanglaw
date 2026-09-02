@@ -86,51 +86,62 @@ export default function ReviewerPage() {
   const progressValue = Math.round((answeredCount / totalCount) * 100);
 
   return (
-    <div className="space-y-8">
-      <motion.section
-        initial={{ opacity: 0, y: 24 }}
+    <div className="space-y-10">
+      <motion.header
+        initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, amount: 0.35 }}
-        className="rounded-2xl sm:rounded-[2rem] border border-accent-muted/30 bg-white p-4 sm:p-6 lg:p-8 shadow-2xl"
+        viewport={{ once: true, amount: 0.15 }}
+        style={{ willChange: "transform, opacity" }}
+        className="border-technical bg-[color:var(--theme-surface)] p-10 shadow-2xl relative overflow-hidden"
       >
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.32em] text-zinc-500 font-bold">Exam Reviewer Engine</p>
-            <h1 className="font-display text-3xl font-black text-zinc-900 mt-3">Mock Test Workspace</h1>
-            <p className="text-sm leading-relaxed text-zinc-600 mt-3 max-w-2xl">
-              Navigate fifty review items with dynamic flagging, quick jump question grid, and subject analytics to help you identify strengths and focus areas.
+        <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-primary" />
+        <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-primary" />
+        
+        <div className="flex flex-col gap-10 lg:flex-row lg:items-end lg:justify-between relative z-10">
+          <div className="space-y-6">
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">[SYS: REVIEW_ENGINE]</span>
+              <div className="h-px w-12 bg-primary/20" />
+            </div>
+            <h1 className="font-display text-4xl font-black text-[color:var(--theme-typography-main)] uppercase tracking-technical leading-tight">
+              Mock Test Workspace
+            </h1>
+            <p className="text-sm leading-relaxed text-[color:var(--theme-text-body)] max-w-2xl font-medium uppercase tracking-wide opacity-80">
+              Navigate fifty review items with dynamic flagging, quick jump question grid, and subject analytics to identify strengths and focus areas.
             </p>
           </div>
           <div
-            className={`rounded-3xl px-4 py-4 text-sm border shadow-sm ${
-              timeLeft <= 120 ? "border-rose-400 bg-rose-50 text-rose-700" : "border-accent-muted/40 bg-base-pastel text-[color:var(--theme-text-body)]"
+            className={`border-technical p-8 shadow-sm min-w-[240px] space-y-4 ${
+              timeLeft <= 120 ? "bg-rose-50 border-rose-400" : "bg-[color:var(--theme-surface)]/50"
             }`}
           >
-            <div className="flex items-center gap-2 font-bold mb-2">
-              <Clock3 className="h-4 w-4 text-primary" />
-              Countdown Timer
+            <div className="flex items-center gap-3 font-black text-[10px] uppercase tracking-[0.3em] text-primary">
+              <Clock3 className="h-4 w-4" />
+              Time Remaining
             </div>
-            <div className="text-3xl font-black">{Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, "0")}</div>
+            <div className="text-4xl font-mono font-black tracking-tighter">
+              {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, "0")}
+            </div>
           </div>
         </div>
-      </motion.section>
+      </motion.header>
 
-      <div className="grid gap-6 xl:grid-cols-[280px_1fr]">
-        <aside className="rounded-2xl sm:rounded-[2rem] border border-accent-muted/30 bg-white p-4 sm:p-6 shadow-2xl">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.32em] text-zinc-500 font-bold">Question Map</p>
-              <p className="text-sm font-bold text-zinc-900">{answeredCount}/{totalCount} Completed</p>
+      <div className="grid gap-0 lg:grid-cols-[300px_1fr] border-technical bg-[color:var(--theme-surface)] shadow-2xl overflow-hidden">
+        <aside className="p-8 border-b lg:border-b-0 lg:border-r border-technical bg-[color:var(--theme-surface)]/30">
+          <div className="flex items-center justify-between mb-10 pb-4 border-b border-technical">
+            <div className="space-y-1">
+              <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">Map</p>
+              <p className="text-[9px] font-mono text-[color:var(--theme-text-muted)] uppercase">{answeredCount}/{totalCount} Units</p>
             </div>
             <button
               onClick={() => setFinished(true)}
-              className="inline-flex items-center gap-2 rounded-full bg-primary px-3 py-2 text-xs font-bold uppercase tracking-[0.28em] text-white shadow-sm hover:bg-primary-hover transition-colors"
+              className="bg-primary text-white px-6 py-2 text-[9px] font-black uppercase tracking-[0.3em] shadow-xl hover:translate-y-[-1px] transition-all"
             >
-              <Play className="h-3.5 w-3.5" /> Finish
+              Finalize
             </button>
           </div>
 
-          <div className="grid grid-cols-5 gap-2">
+          <div className="grid grid-cols-5 gap-0 border-technical bg-[color:var(--theme-surface)] overflow-hidden">
             {QUESTION_BANK.map((question) => {
               const isActive = question.id - 1 === activeIndex;
               const answered = selectedAnswers[question.id] !== undefined;
@@ -139,70 +150,65 @@ export default function ReviewerPage() {
                 : isActive
                 ? "bg-primary text-white"
                 : answered
-                ? "bg-secondary text-white"
-                : "bg-base-pastel text-[color:var(--theme-text-body)]";
+                ? "bg-[color:var(--theme-surface)] text-primary"
+                : "bg-[color:var(--theme-canvas)] text-[color:var(--theme-text-muted)]";
 
               return (
                 <button
                   key={question.id}
                   type="button"
                   onClick={() => setActiveIndex(question.id - 1)}
-                  className={`aspect-square rounded-2xl border border-accent-muted/30 text-[11px] font-bold transition-transform hover:scale-[1.02] focus:outline-none ${statusClass}`}
-                  aria-label={`Jump to question ${question.id}`}
+                  className={`aspect-square border-r border-b border-technical last:border-r-0 text-[10px] font-mono font-black transition-all hover:bg-[color:var(--theme-surface)] focus:outline-none ${statusClass}`}
                 >
-                  {question.id}
+                  {String(question.id).padStart(2, '0')}
                 </button>
               );
             })}
           </div>
 
-          <div className="mt-5 space-y-3 text-sm text-zinc-600">
-            <div className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-primary" /> Active
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-secondary" /> Answered
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-base-pastel border border-zinc-300" /> Unattended
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-amber-300" /> Flagged
-            </div>
+          <div className="mt-10 space-y-4">
+            {[
+              { label: "Active", color: "bg-primary" },
+              { label: "Answered", color: "bg-[color:var(--theme-surface)] border border-technical" },
+              { label: "Unattended", color: "bg-white border border-technical" },
+              { label: "Flagged", color: "bg-amber-300" }
+            ].map(status => (
+              <div key={status.label} className="flex items-center gap-4 text-[9px] font-black uppercase tracking-widest text-[color:var(--theme-text-muted)]">
+                <span className={`h-2.5 w-2.5 ${status.color}`} /> {status.label}
+              </div>
+            ))}
           </div>
         </aside>
 
-        <section className="space-y-6">
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.3 }}
-            className="rounded-2xl sm:rounded-[2rem] border border-accent-muted/30 bg-white p-4 sm:p-6 lg:p-8 shadow-2xl"
-          >
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <p className="text-[11px] uppercase tracking-[0.32em] text-zinc-500 font-bold">Subject</p>
-                <h2 className="font-display text-2xl font-black text-zinc-900 mt-2">{currentQuestion.subject}</h2>
+        <section className="bg-[color:var(--theme-surface)] flex flex-col">
+          <div className="p-12 space-y-12">
+            <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">Domain</span>
+                </div>
+                <h2 className="text-3xl font-black text-[color:var(--theme-typography-main)] uppercase tracking-technical leading-tight">
+                  {currentQuestion.subject}
+                </h2>
               </div>
-              <div className="rounded-3xl bg-base-pastel px-4 py-3 text-sm text-[color:var(--theme-text-body)] border border-accent-muted/40">
-                <p className="text-[10px] uppercase tracking-[0.28em] text-[color:var(--theme-text-muted)]">Question</p>
-                <p className="mt-1 text-lg font-black text-[color:var(--theme-typography-main)]">{currentQuestion.id}</p>
+              <div className="border-technical bg-[color:var(--theme-surface)]/50 p-6 min-w-[120px] text-center">
+                <p className="text-[9px] font-black uppercase tracking-[0.3em] text-[color:var(--theme-text-muted)]">Unit ID</p>
+                <p className="mt-2 text-2xl font-mono font-black text-primary">#{String(currentQuestion.id).padStart(2, '0')}</p>
               </div>
             </div>
 
-            <p className="mt-4 text-sm leading-relaxed text-zinc-600">{currentQuestion.questionText}</p>
+            <p className="text-lg font-medium leading-relaxed text-[color:var(--theme-text-body)] tracking-technical">
+              {currentQuestion.questionText}
+            </p>
 
-            <div role="radiogroup" aria-labelledby="choice-label" className="grid gap-3 mt-6">
-              <p id="choice-label" className="sr-only">
-                Answer choices
-              </p>
+            <div role="radiogroup" className="grid gap-0 border-technical">
               {currentQuestion.options.map((option, index) => {
                 const selected = selectedAnswers[currentQuestion.id] === index;
                 return (
                   <label
                     key={option}
-                    className={`group flex cursor-pointer flex-col rounded-3xl border px-4 py-4 transition-all ${
-                      selected ? "border-primary bg-primary text-white shadow-lg" : "border-accent-muted/40 bg-base-light text-[color:var(--theme-typography-main)] hover:border-primary hover:bg-primary/5"
+                    className={`group flex cursor-pointer items-center gap-8 border-b border-technical last:border-b-0 px-8 py-6 transition-all ${
+                      selected ? "bg-primary text-white" : "bg-[color:var(--theme-surface)] text-[color:var(--theme-text-body)] hover:bg-[color:var(--theme-canvas)]"
                     }`}
                   >
                     <input
@@ -212,85 +218,90 @@ export default function ReviewerPage() {
                       onChange={() => handleAnswer(index)}
                       className="sr-only"
                     />
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold">{String.fromCharCode(65 + index)}.</span>
-                      {selected && <CheckCircle2 className="h-4 w-4 text-white" />}
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex items-center gap-8">
+                        <span className={`text-[10px] font-mono font-black ${selected ? "text-white/60" : "text-primary"}`}>
+                          [{String.fromCharCode(65 + index)}]
+                        </span>
+                        <p className="text-xs font-bold uppercase tracking-widest leading-relaxed">{option}</p>
+                      </div>
+                      {selected && <CheckCircle2 className="h-4 w-4" />}
                     </div>
-                    <p className="mt-3 text-sm leading-relaxed">{option}</p>
                   </label>
                 );
               })}
             </div>
 
-            <div className="mt-6 flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-4">
               <button
                 onClick={toggleFlag}
-                className="inline-flex items-center gap-2 rounded-full border border-amber-300 bg-amber-100 px-4 py-2 text-sm font-bold text-zinc-700 hover:bg-amber-200 transition-colors"
+                className={`inline-flex items-center gap-3 border-technical px-8 py-3 text-[10px] font-black uppercase tracking-[0.3em] transition-all hover:translate-y-[-1px] ${
+                  flaggedItems.includes(currentQuestion.id) ? "bg-amber-300 border-amber-400 text-zinc-900" : "bg-[color:var(--theme-surface)] text-[color:var(--theme-text-body)] hover:bg-[color:var(--theme-canvas)]"
+                }`}
               >
-                <Flag className="h-4 w-4" /> {flaggedItems.includes(currentQuestion.id) ? "Unflag" : "Flag for review"}
+                <Flag className="h-4 w-4" /> {flaggedItems.includes(currentQuestion.id) ? "De-flag" : "Flag Unit"}
               </button>
+              <div className="flex-1" />
               <button
                 onClick={() => setActiveIndex((prev) => Math.max(prev - 1, 0))}
-                className="inline-flex items-center gap-2 rounded-full border border-accent-muted bg-white px-4 py-2 text-sm font-bold text-zinc-900 hover:bg-base-pastel transition-colors"
+                disabled={activeIndex === 0}
+                className="inline-flex items-center gap-3 border-technical bg-[color:var(--theme-surface)] px-8 py-3 text-[10px] font-black uppercase tracking-[0.3em] text-[color:var(--theme-text-body)] hover:bg-[color:var(--theme-canvas)] transition-all disabled:opacity-20"
               >
-                <ChevronRight className="h-4 w-4 rotate-180" /> Previous
+                Previous
               </button>
               <button
                 onClick={() => setActiveIndex((prev) => Math.min(prev + 1, totalCount - 1))}
-                className="inline-flex items-center gap-2 rounded-full border border-accent-muted bg-white px-4 py-2 text-sm font-bold text-zinc-900 hover:bg-base-pastel transition-colors"
+                disabled={activeIndex === totalCount - 1}
+                className="inline-flex items-center gap-3 bg-primary text-white px-8 py-3 text-[10px] font-black uppercase tracking-[0.3em] shadow-xl hover:translate-y-[-1px] transition-all disabled:opacity-20"
               >
-                Next <ChevronRight className="h-4 w-4" />
+                Next Unit <ChevronRight className="h-4 w-4" />
               </button>
             </div>
-          </motion.div>
+          </div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.3 }}
-            className="grid gap-6 md:grid-cols-2"
-          >
-            <div className="rounded-2xl sm:rounded-[2rem] border border-accent-muted/30 bg-white p-4 sm:p-6 shadow-2xl">
+          <div className="mt-auto border-t border-technical bg-[color:var(--theme-surface)]/30 p-12 grid gap-10 md:grid-cols-2">
+            <div className="space-y-6">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.3em] text-zinc-500 font-bold">Progress</p>
-                  <p className="mt-2 text-sm font-semibold text-zinc-900">Answer completion</p>
+                <div className="space-y-1">
+                  <p className="text-[9px] font-black uppercase tracking-[0.3em] text-primary">Progress</p>
+                  <p className="text-[11px] font-bold text-[color:var(--theme-typography-main)] uppercase tracking-widest">Answer Completion</p>
                 </div>
-                <span className="rounded-full bg-primary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.24em] text-primary">
+                <span className="text-xl font-mono font-black text-primary">
                   {progressValue}%
                 </span>
               </div>
-              <div className="mt-5 h-3 overflow-hidden rounded-full bg-base-pastel">
-                <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progressValue}%` }} />
+              <div className="h-2 bg-gray-100 border-technical">
+                <div className="h-full bg-primary transition-all duration-300" style={{ width: `${progressValue}%` }} />
               </div>
-              <p className="mt-3 text-xs uppercase tracking-[0.28em] text-zinc-500">{answeredCount} items answered out of {totalCount}</p>
+              <p className="text-[9px] font-mono text-[color:var(--theme-text-muted)] uppercase">[{answeredCount} / {totalCount} UNITS COMMITTED]</p>
             </div>
-            <div className="rounded-2xl sm:rounded-[2rem] border border-accent-muted/30 bg-white p-4 sm:p-6 shadow-2xl">
-              <div className="flex items-center gap-3 mb-4">
-                <BookOpen className="h-5 w-5 text-primary" />
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.3em] text-zinc-500 font-bold">Performance Breakdown</p>
-                  <p className="text-sm font-semibold text-zinc-900">Subject accuracy across review items</p>
+
+            <div className="space-y-6">
+              <div className="flex items-center gap-3">
+                <BookOpen className="h-4 w-4 text-primary" />
+                <div className="space-y-1">
+                  <p className="text-[9px] font-black uppercase tracking-[0.3em] text-primary">Breakdown</p>
+                  <p className="text-[11px] font-bold text-[color:var(--theme-typography-main)] uppercase tracking-widest">Domain Performance</p>
                 </div>
               </div>
               <div className="space-y-4">
                 {Object.entries(subjectScores).map(([subject, stats]) => {
                   const score = stats.answered > 0 ? Math.round((stats.correct / stats.answered) * 100) : 0;
                   return (
-                    <div key={subject}>
-                      <div className="flex items-center justify-between text-xs text-zinc-600 uppercase tracking-[0.24em] font-bold mb-2">
+                    <div key={subject} className="space-y-2">
+                      <div className="flex items-center justify-between text-[8px] font-mono text-[color:var(--theme-text-muted)] uppercase">
                         <span>{subject}</span>
                         <span>{score}%</span>
                       </div>
-                      <div className="h-2 rounded-full bg-base-pastel">
-                        <div className="h-full rounded-full bg-secondary" style={{ width: `${score}%` }} />
+                      <div className="h-1 bg-gray-100">
+                        <div className="h-full bg-primary/60" style={{ width: `${score}%` }} />
                       </div>
                     </div>
                   );
                 })}
               </div>
             </div>
-          </motion.div>
+          </div>
         </section>
       </div>
 
@@ -298,20 +309,23 @@ export default function ReviewerPage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl sm:rounded-[2rem] border border-accent-muted/30 bg-[#f6fff0] p-4 sm:p-6 shadow-2xl"
+          className="border-technical bg-emerald-50 p-10 shadow-2xl relative overflow-hidden"
         >
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3">
-              <div className="inline-flex h-12 w-12 items-center justify-center rounded-3xl bg-primary text-white shadow-lg">
+          <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-emerald-500" />
+          <div className="flex flex-col gap-8 sm:flex-row sm:items-center sm:justify-between relative z-10">
+            <div className="flex items-center gap-6">
+              <div className="h-12 w-12 border-technical bg-emerald-500 flex items-center justify-center text-white shadow-xl">
                 <Sparkles className="h-6 w-6" />
               </div>
-              <div>
-                <p className="text-sm font-black text-zinc-900">Review Complete</p>
-                <p className="text-xs text-zinc-600 mt-1">Your performance dashboard is ready. Review strengths and flagged items before reattempting the simulation.</p>
+              <div className="space-y-2">
+                <p className="text-xl font-black text-emerald-900 uppercase tracking-technical">Simulation Complete</p>
+                <p className="text-[10px] text-emerald-700 font-bold uppercase tracking-widest opacity-80">
+                  Performance dashboard ready. Review strengths before re-initializing protocol.
+                </p>
               </div>
             </div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.28em] text-zinc-700 border border-accent-muted/40">
-              <CheckCircle2 className="h-4 w-4 text-emerald-600" /> Finished
+            <div className="border-technical bg-white px-8 py-3 text-[10px] font-black uppercase tracking-[0.3em] text-emerald-700 shadow-sm flex items-center gap-3">
+              <CheckCircle2 className="h-4 w-4" /> Finished
             </div>
           </div>
         </motion.div>

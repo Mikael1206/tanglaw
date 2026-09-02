@@ -9,15 +9,13 @@ import apiRouter from "./routes";
  * then starts the Express HTTP listener.
  */
 
-dotenv.config({ path: ".env.local" });
+for (const file of [".env.local", ".env"]) {
+  dotenv.config({ path: file });
+}
 
 const app = express();
 const port = Number(process.env.PORT ?? 4000);
-const frontendOrigin = process.env.FRONTEND_URL;
-
-if (!frontendOrigin) {
-  throw new Error("FRONTEND_URL environment variable is required");
-}
+const frontendOrigin = process.env.FRONTEND_URL ?? "http://localhost:3000";
 
 // Strip trailing slash to avoid CORS origin mismatch (browser sends origin without /)
 const corsOrigin = frontendOrigin.replace(/\/+$/, "");
@@ -40,6 +38,9 @@ app.use((req, res) => {
 });
 
 const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
+  if (err && typeof err === "object" && "type" in err && err.type === "entity.parse.failed") {
+    return res.status(400).json({ error: "Invalid JSON request body." });
+  }
   console.error(err);
   if (res.headersSent) {
     return;

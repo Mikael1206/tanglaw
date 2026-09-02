@@ -16,9 +16,11 @@ services:
       - key: NODE_VERSION
         value: 20
       - key: FRONTEND_URL
-        sync: false      # Set manually: your Vercel URL (e.g. https://tanglaw.vercel.app)
+        sync: false      # Set manually: https://tanglaw-project.vercel.app
       - key: JWT_SECRET
         generateValue: true
+      - key: OAUTH_BRIDGE_SECRET
+        sync: false      # Same server-only secret configured on Vercel
       - key: DATABASE_URL
         sync: false      # Set manually: your Supabase PostgreSQL connection string
       - key: DIRECT_URL

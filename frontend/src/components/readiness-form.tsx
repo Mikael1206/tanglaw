@@ -1,217 +1,106 @@
 "use client";
 
 /**
- * Interactive readiness assessment form for the student dashboard.
- * Presents timed quiz questions and generates a readiness score.
+ * Interactive Readiness Check and Consolidated Mock Exam component.
+ * Thin orchestrator — child components are code-split via next/dynamic.
  */
-import React, { useState, useEffect, useMemo } from "react";
-import { Play, RotateCcw, Timer, Award, CheckCircle2, AlertTriangle, BookMarked, HelpCircle, ChevronRight } from "lucide-react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import dynamic from "next/dynamic";
+import { motion, AnimatePresence } from "framer-motion";
+import { Clock, Flag } from "lucide-react";
+import { fetchQuestions } from "@/lib/backend";
+
+// ─── Code-split child components ──────────────────────────────────────────
+const ReadinessSetup = dynamic(() => import("./readiness-setup"), {
+  loading: () => <div className="h-[600px] animate-pulse rounded-[2rem] bg-[color:var(--theme-surface)]" />,
+});
+const ReadinessQuestion = dynamic(() => import("./readiness-question"), {
+  loading: () => <div className="h-[400px] animate-pulse rounded-[2rem] bg-[color:var(--theme-surface)]" />,
+});
+const ReadinessFeedback = dynamic(() => import("./readiness-feedback"), {
+  loading: () => <div className="h-[500px] animate-pulse rounded-[2rem] bg-[color:var(--theme-surface)]" />,
+});
+
+// ─── Types ─────────────────────────────────────────────────────────────────
+const SUBJECTS = [
+  "Mathematics",
+  "Science",
+  "English",
+  "Filipino",
+  "Logical Reasoning"
+] as const;
+
+type SubjectType = typeof SUBJECTS[number];
 
 interface Question {
   id: number;
-  subject: "Mathematics" | "Science" | "English" | "Filipino";
-  difficulty: number; // 1 to 5
+  subject: SubjectType;
+  difficulty: number;
   questionText: string;
   options: string[];
-  correctAnswer: number; // Index in options
+  correctAnswer: number;
 }
 
-const QUESTIONS_POOL: Question[] = [
-  // Mathematics
-  {
-    id: 1,
-    subject: "Mathematics",
-    difficulty: 2,
-    questionText: "If 3x + 7 = 22, what is the value of x?",
-    options: ["x = 3", "x = 5", "x = 6", "x = 7"],
-    correctAnswer: 1
-  },
-  {
-    id: 2,
-    subject: "Mathematics",
-    difficulty: 3,
-    questionText: "Find the limit of (x^2 - 4) / (x - 2) as x approaches 2.",
-    options: ["2", "4", "0", "Undefined"],
-    correctAnswer: 1
-  },
-  {
-    id: 3,
-    subject: "Mathematics",
-    difficulty: 4,
-    questionText: "What is the derivative of f(x) = 3x^2 + 5x - 9 with respect to x?",
-    options: ["6x + 5", "3x + 5", "6x^2 + 5", "6x"],
-    correctAnswer: 0
-  },
-  {
-    id: 4,
-    subject: "Mathematics",
-    difficulty: 1,
-    questionText: "What is the perimeter of a rectangle with length 12cm and width 5cm?",
-    options: ["17cm", "60cm", "34cm", "45cm"],
-    correctAnswer: 2
-  },
-  {
-    id: 5,
-    subject: "Mathematics",
-    difficulty: 5,
-    questionText: "In a right triangle, if the hypotenuse is 13 and one leg is 5, what is the length of the other leg?",
-    options: ["8", "12", "10", "11"],
-    correctAnswer: 1
-  },
-
-  // Science
-  {
-    id: 6,
-    subject: "Science",
-    difficulty: 1,
-    questionText: "Which gas do plants absorb from the atmosphere for photosynthesis?",
-    options: ["Oxygen", "Nitrogen", "Carbon Dioxide", "Hydrogen"],
-    correctAnswer: 2
-  },
-  {
-    id: 7,
-    subject: "Science",
-    difficulty: 2,
-    questionText: "What is the chemical formula for ordinary table salt?",
-    options: ["NaCl", "HCl", "NaOH", "KCl"],
-    correctAnswer: 0
-  },
-  {
-    id: 8,
-    subject: "Science",
-    difficulty: 3,
-    questionText: "Which law states that for every action, there is an equal and opposite reaction?",
-    options: ["Newton's First Law", "Newton's Second Law", "Newton's Third Law", "Law of Universal Gravitation"],
-    correctAnswer: 2
-  },
-  {
-    id: 9,
-    subject: "Science",
-    difficulty: 4,
-    questionText: "What organelle is known as the powerhouse of the eukaryotic cell?",
-    options: ["Nucleus", "Ribosome", "Golgi Apparatus", "Mitochondria"],
-    correctAnswer: 3
-  },
-  {
-    id: 10,
-    subject: "Science",
-    difficulty: 5,
-    questionText: "Which layer of the atmosphere contains the ozone layer that protects us from ultraviolet rays?",
-    options: ["Troposphere", "Stratosphere", "Mesosphere", "Thermosphere"],
-    correctAnswer: 1
-  },
-
-  // English
-  {
-    id: 11,
-    subject: "English",
-    difficulty: 1,
-    questionText: "Identify the conjunction in this sentence: 'He wanted to join the class, but he forgot to enroll.'",
-    options: ["wanted", "join", "but", "forgot"],
-    correctAnswer: 2
-  },
-  {
-    id: 12,
-    subject: "English",
-    difficulty: 2,
-    questionText: "Select the sentence with the correct subject-verb agreement.",
-    options: [
-      "The pack of wolves are running in the forest.",
-      "The pack of wolves is running in the forest.",
-      "The pack of wolves run in the forest.",
-      "The wolves runs in the forest."
-    ],
-    correctAnswer: 1
-  },
-  {
-    id: 13,
-    subject: "English",
-    difficulty: 3,
-    questionText: "What is the synonym of the word 'Metaphorical'?",
-    options: ["Literal", "Symbolic", "Factual", "Intense"],
-    correctAnswer: 1
-  },
-  {
-    id: 14,
-    subject: "English",
-    difficulty: 4,
-    questionText: "Choose the correct prepositions to fill the blanks: 'She was ashamed ___ her behavior ___ the party.'",
-    options: ["of / at", "about / in", "for / during", "with / on"],
-    correctAnswer: 0
-  },
-  {
-    id: 15,
-    subject: "English",
-    difficulty: 5,
-    questionText: "What figure of speech is represented in: 'The wind whispered secrets to the trembling trees'?",
-    options: ["Simile", "Metaphor", "Personification", "Hyperbole"],
-    correctAnswer: 2
-  },
-
-  // Filipino
-  {
-    id: 16,
-    subject: "Filipino",
-    difficulty: 1,
-    questionText: "Ano ang kahulugan ng salitang 'aklat' sa wikang Filipino?",
-    options: ["Notebook", "Papel", "Lapis", "Libro"],
-    correctAnswer: 3
-  },
-  {
-    id: 17,
-    subject: "Filipino",
-    difficulty: 2,
-    questionText: "Alin ang may wastong baybay ng salita ayon sa Ortograpiyang Pambansa?",
-    options: ["Kompuyter", "Kompyuter", "Computery", "Kumputer"],
-    correctAnswer: 1
-  },
-  {
-    id: 18,
-    subject: "Filipino",
-    difficulty: 3,
-    questionText: "Piliin ang wastong gamit ng 'ng' at 'nang'. 'Kumain ___ saging ang bata ___ mabilis.'",
-    options: ["nang / ng", "ng / nang", "ng / ng", "nang / nang"],
-    correctAnswer: 1
-  },
-  {
-    id: 19,
-    subject: "Filipino",
-    difficulty: 4,
-    questionText: "Sino ang kinikilalang 'Ama ng Wikang Pambansa' ng Pilipinas?",
-    options: ["Jose Rizal", "Andres Bonifacio", "Manuel L. Quezon", "Francisco Balagtas"],
-    correctAnswer: 2
-  },
-  {
-    id: 20,
-    subject: "Filipino",
-    difficulty: 5,
-    questionText: "Ano ang tayutay na naghahambing gamit ang mga pariralang 'tila', 'parang', at 'kasing-'?",
-    options: ["Pagtutulad (Simile)", "Pagwawangis (Metaphor)", "Pagsasatao (Personification)", "Pagmamalabis (Hyperbole)"],
-    correctAnswer: 0
-  }
-];
-
 export default function ReadinessForm() {
-  // Config state
-  const [itemCount, setItemCount] = useState(10);
-  const [selectedDifficulty, setSelectedDifficulty] = useState(3);
-  const [selectedSubjects, setSelectedSubjects] = useState<string[]>(["Mathematics", "Science", "English"]);
+  // Config states
+  const [view, setView] = useState<"setup" | "active" | "feedback">("setup");
+  const [selectedType, setSelectedType] = useState<"diagnostics" | "mock">("diagnostics");
+  const [selectedSubjects, setSelectedSubjects] = useState<SubjectType[]>([...SUBJECTS]);
+  const [itemCount, setItemCount] = useState<10 | 20 | 30 | 40 | 50>(10);
+  const [selectedDifficulty, setSelectedDifficulty] = useState<1 | 2 | 3 | 4 | 5>(3);
 
-  // Game state
-  const [quizStarted, setQuizStarted] = useState(false);
-  const [quizFinished, setQuizFinished] = useState(false);
+  // Question-fetch states
+  const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Active exam states
   const [activeQuestions, setActiveQuestions] = useState<Question[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [activeIndex, setActiveIndex] = useState<number>(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
-  const [timeLeft, setTimeLeft] = useState(45); // Seconds per question
+  const [flaggedItems, setFlaggedItems] = useState<number[]>([]);
+  
+  // Timer States
+  const [timeLeft, setTimeLeft] = useState<number>(45);
+  const [activeSubject, setActiveSubject] = useState<SubjectType>("Mathematics");
+
+  // Stable callbacks (declared before timer effect to avoid used-before-declaration)
+  const handleSelectOption = useCallback((optionIndex: number) => {
+    setSelectedAnswers((prev) => ({
+      ...prev,
+      [activeIndex]: optionIndex,
+    }));
+  }, [activeIndex]);
+
+  const handleNextQuestion = useCallback(() => {
+    if (activeIndex < activeQuestions.length - 1) {
+      setActiveIndex((prev) => prev + 1);
+      if (selectedType === "diagnostics") {
+        setTimeLeft(45);
+      }
+    } else {
+      setView("feedback");
+    }
+  }, [activeIndex, activeQuestions.length, selectedType]);
+
+  const handlePrevQuestion = useCallback(() => {
+    if (activeIndex > 0) {
+      setActiveIndex((prev) => prev - 1);
+      if (selectedType === "diagnostics") {
+        setTimeLeft(45);
+      }
+    }
+  }, [activeIndex, selectedType]);
 
   // Timer Effect
   useEffect(() => {
-    if (!quizStarted || quizFinished) return;
+    if (view !== "active") return;
 
     if (timeLeft <= 0) {
-      // Auto-move or auto-fail question
-      handleNextQuestion();
+      if (selectedType === "diagnostics") {
+        handleNextQuestion();
+      } else {
+        setView("feedback");
+      }
       return;
     }
 
@@ -220,9 +109,22 @@ export default function ReadinessForm() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [timeLeft, quizStarted, quizFinished]);
+  }, [timeLeft, view, selectedType, handleNextQuestion]);
 
-  const handleSubjectChange = (subject: string) => {
+  // Sync active subject in mock exam when active question changes
+  useEffect(() => {
+    if (view === "active" && selectedType === "mock" && activeQuestions[activeIndex]) {
+      setActiveSubject(activeQuestions[activeIndex].subject);
+    }
+  }, [activeIndex, activeQuestions, view, selectedType]);
+
+  // Subject indices mappings for Option 2 (Mock Exam)
+  const subjectStartIndex = (subj: SubjectType) => {
+    const idx = SUBJECTS.indexOf(subj);
+    return idx * 50;
+  };
+
+  const handleSubjectChange = (subject: SubjectType) => {
     setSelectedSubjects((prev) =>
       prev.includes(subject)
         ? prev.filter((s) => s !== subject)
@@ -230,59 +132,76 @@ export default function ReadinessForm() {
     );
   };
 
-  const handleStartQuiz = () => {
-    if (selectedSubjects.length === 0) {
-      alert("Please select at least one subject to start the assessment.");
+  const handleStartExam = async (typeOverride?: "diagnostics" | "mock") => {
+    const examType = typeOverride || selectedType;
+    if (examType === "diagnostics" && selectedSubjects.length === 0) {
+      alert("Please select at least one subject to begin.");
       return;
     }
 
-    // Filter pool based on selections
-    let pool = QUESTIONS_POOL.filter(
-      (q) => selectedSubjects.includes(q.subject) && Math.abs(q.difficulty - selectedDifficulty) <= 1
+    setLoadError(null);
+    setIsLoadingQuestions(true);
+    try {
+      const questions = await fetchQuestions(
+        examType === "diagnostics"
+          ? { mode: "diagnostic", subjects: selectedSubjects, difficulty: [selectedDifficulty], count: itemCount }
+          : { mode: "mock" }
+      );
+
+      setActiveQuestions(questions);
+      setActiveIndex(0);
+      setSelectedAnswers({});
+      setFlaggedItems([]);
+      if (examType === "diagnostics") {
+        setTimeLeft(45);
+      } else {
+        setTimeLeft(180 * 60);
+        setActiveSubject("Mathematics");
+      }
+      setView("active");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("[Readiness] Failed to load questions:", message);
+      setLoadError(
+        err instanceof TypeError
+          ? "We couldn't connect to the server. It may be waking up from sleep — please try again in a moment."
+          : `We couldn't load questions: ${message}`
+      );
+    } finally {
+      setIsLoadingQuestions(false);
+    }
+  };
+
+  const toggleFlag = () => {
+    setFlaggedItems((prev) =>
+      prev.includes(activeIndex)
+        ? prev.filter((i) => i !== activeIndex)
+        : [...prev, activeIndex]
     );
-
-    // If pool is empty, fall back to matching subjects
-    if (pool.length === 0) {
-      pool = QUESTIONS_POOL.filter((q) => selectedSubjects.includes(q.subject));
-    }
-
-    // Shuffle pool
-    const shuffled = [...pool].sort(() => 0.5 - Math.random());
-    // Take requested item count (or pool length, whichever is smaller)
-    const selected = shuffled.slice(0, Math.min(itemCount, pool.length));
-
-    setActiveQuestions(selected);
-    setCurrentIndex(0);
-    setSelectedAnswers({});
-    setTimeLeft(45);
-    setQuizStarted(true);
-    setQuizFinished(false);
   };
 
-  const handleSelectOption = (optionIndex: number) => {
-    setSelectedAnswers((prev) => ({
-      ...prev,
-      [currentIndex]: optionIndex
-    }));
-  };
-
-  const handleNextQuestion = () => {
-    if (currentIndex < activeQuestions.length - 1) {
-      setCurrentIndex((prev) => prev + 1);
-      setTimeLeft(45);
-    } else {
-      setQuizFinished(true);
+  const handleFinishExam = () => {
+    const unanswered = activeQuestions.length - Object.keys(selectedAnswers).length;
+    if (unanswered > 0) {
+      if (!confirm(`You have ${unanswered} unanswered questions. Are you sure you want to finish the exam?`)) {
+        return;
+      }
     }
+    setView("feedback");
   };
 
   const handleRestart = () => {
-    setQuizStarted(false);
-    setQuizFinished(false);
+    setView("setup");
     setSelectedAnswers({});
-    setCurrentIndex(0);
+    setFlaggedItems([]);
+    setActiveIndex(0);
+    setLoadError(null);
   };
 
   // Computations
+  const answeredCount = Object.keys(selectedAnswers).length;
+  const progressValue = activeQuestions.length > 0 ? Math.round((answeredCount / activeQuestions.length) * 100) : 0;
+
   const score = useMemo(() => {
     let correct = 0;
     activeQuestions.forEach((q, index) => {
@@ -298,309 +217,364 @@ export default function ReadinessForm() {
     return Math.round((score / activeQuestions.length) * 100);
   }, [score, activeQuestions]);
 
+  const subjectScores = useMemo(() => {
+    const scores: Record<SubjectType, { correct: number; total: number; answered: number }> = {
+      "Mathematics": { correct: 0, total: 0, answered: 0 },
+      "Science": { correct: 0, total: 0, answered: 0 },
+      "English": { correct: 0, total: 0, answered: 0 },
+      "Filipino": { correct: 0, total: 0, answered: 0 },
+      "Logical Reasoning": { correct: 0, total: 0, answered: 0 },
+    };
+
+    activeQuestions.forEach((q, index) => {
+      scores[q.subject].total += 1;
+      const ans = selectedAnswers[index];
+      if (ans !== undefined) {
+        scores[q.subject].answered += 1;
+        if (ans === q.correctAnswer) {
+          scores[q.subject].correct += 1;
+        }
+      }
+    });
+
+    return scores;
+  }, [activeQuestions, selectedAnswers]);
+
   const readinessDetails = useMemo(() => {
     if (scorePercentage >= 80) {
       return {
         level: "Highly Prepared",
         color: "bg-emerald-100 border-emerald-400 text-emerald-800",
-        icon: <CheckCircle2 className="h-10 w-10 text-emerald-600" />,
-        text: "Exceptional! Your aptitude score demonstrates absolute core readiness to excel in complex scholarship grants like DOST-SEI or CHED Merit."
+        icon: <span className="text-emerald-600">✓</span>,
+        text: "Exceptional! Your aptitude score demonstrates absolute core readiness to excel in complex scholarship grants like DOST-SEI, CHED Merit, or private foundation reviews."
       };
     } else if (scorePercentage >= 50) {
       return {
         level: "Needs Minor Review",
         color: "bg-amber-100 border-amber-400 text-amber-800",
-        icon: <AlertTriangle className="h-10 w-10 text-amber-600" />,
+        icon: <span className="text-amber-600">⚠</span>,
         text: "Good attempt! You meet basic competencies. A bit of focused review in weaker subject segments will solidify your competitiveness."
       };
     } else {
       return {
         level: "Needs Intensive Improvement",
-        color: "bg-accent-rose/50 border-accent-rose text-[color:var(--theme-text-body)]",
-        icon: <AlertTriangle className="h-10 w-10 text-red-600" />,
+        color: "bg-accent-rose/50 border-accent-rose",
+        icon: <span className="text-red-600">⚠</span>,
         text: "Don't worry! This is a roadmap indicator. Focus on targeted study modules to strengthen your primary vocabulary, mathematical formulas, and scientific facts."
       };
     }
   }, [scorePercentage]);
 
-  const topicRecommendations = useMemo(() => {
-    const list: string[] = [];
-    const subjectsIncluded = new Set(activeQuestions.map((q) => q.subject));
+  const studyRecommendations = useMemo(() => {
+    const recs: string[] = [];
+    Object.entries(subjectScores).forEach(([subj, stats]) => {
+      const accuracy = stats.answered > 0 ? (stats.correct / stats.answered) * 100 : 0;
+      if (stats.total > 0 && accuracy < 75) {
+        if (subj === "Mathematics") recs.push("Mathematics: Practice linear equations, trigonometric ratios, logarithm conversions, and basic probability sets.");
+        if (subj === "Science") recs.push("Science: Memorize key element configurations, chemical formula nomenclature, physics kinematics, and atmospheric stratification layers.");
+        if (subj === "English") recs.push("English: Review grammar rules, literary devices, subject-verb agreement, and vocabulary building exercises.");
+        if (subj === "Filipino") recs.push("Filipino: Practice grammar structures (balarila), figure of speech identification, and reading comprehension in Filipino.");
+        if (subj === "Logical Reasoning") recs.push("Logical Reasoning: Strengthen deductive logic arguments, numerical pattern sequencing, and lexical classification filters.");
+      }
+    });
 
-    if (subjectsIncluded.has("Mathematics")) {
-      list.push("Math: Deepen understanding of limits, calculus derivatives, and algebraic quadratics.");
+    if (recs.length === 0) {
+      recs.push("Review all topics briefly to sustain your high performance across subjects!");
     }
-    if (subjectsIncluded.has("Science")) {
-      list.push("Science: Memorize fundamental chemical formulas (NaCl, etc.) and Newton's three laws of motion.");
-    }
-    if (subjectsIncluded.has("English")) {
-      list.push("English: Refresh sentence prepositions, subject-verb rules, and stylistic personification.");
-    }
-    if (subjectsIncluded.has("Filipino")) {
-      list.push("Filipino: Re-evaluate correct application of 'ng' vs 'nang' and basic baybay rules.");
-    }
-    return list;
-  }, [activeQuestions]);
+    return recs;
+  }, [subjectScores]);
 
   return (
-    <div className="w-full max-w-3xl mx-auto px-4 py-8 font-sans">
-      {/* 1. Setup Configuration Layer */}
-      {!quizStarted && (
-        <section className="bg-[color:var(--theme-surface)]/80 border-2 border-accent-muted/60 rounded-2xl p-4 sm:p-6 lg:p-8 shadow-xl animate-fade-in">
-          <div className="text-center mb-8">
-            <h2 className="text-2xl font-black text-text-primary tracking-tight">Interactive Readiness Check</h2>
-            <p className="text-sm text-[color:var(--theme-text-body)] mt-2">
-              Gamified timed mock-assessment to map your academic strengths before applying for grants.
-            </p>
-          </div>
+    <div className="w-full mx-auto font-sans">
+      <AnimatePresence mode="wait">
+        
+        {/* ── 1. SETUP CONFIGURATION LAYER ─────────────────────────────────── */}
+        {view === "setup" && (
+          <ReadinessSetup
+            selectedSubjects={selectedSubjects}
+            onSubjectChange={handleSubjectChange}
+            itemCount={itemCount}
+            onItemCountChange={setItemCount}
+            selectedDifficulty={selectedDifficulty}
+            onDifficultyChange={setSelectedDifficulty}
+            isLoading={isLoadingQuestions}
+            loadError={loadError}
+            onStartDiagnostics={() => {
+              setSelectedType("diagnostics");
+              handleStartExam("diagnostics");
+            }}
+            onStartMockExam={() => {
+              setSelectedType("mock");
+              handleStartExam("mock");
+            }}
+          />
+        )}
 
-          <div className="space-y-6">
-            {/* Subject Checkboxes */}
-            <div className="space-y-3">
-              <label className="text-sm font-bold text-text-primary block">
-                Select Assessment Subjects (Select at least one):
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {["Mathematics", "Science", "English", "Filipino"].map((subj) => {
-                  const isChecked = selectedSubjects.includes(subj);
-                  return (
-                    <button
-                      key={subj}
-                      onClick={() => handleSubjectChange(subj)}
-                      className={`p-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                        isChecked
-                        ? "bg-primary border-primary-hover text-white shadow-sm"
-                          : "bg-[color:var(--theme-canvas)] border-accent-periwinkle/60 text-[color:var(--theme-text-muted)] hover:border-accent-periwinkle"
-                      }`}
-                    >
-                      {subj}
-                    </button>
-                  );
-                })}
-              </div>
+        {/* ── 2. ACTIVE QUIZ/SIMULATION BOARD ──────────────────────────────── */}
+        {view === "active" && activeQuestions.length === 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -16 }}
+            className="w-full"
+          >
+            <div className="rounded-[2rem] border border-accent-rose/30 bg-accent-rose/10 p-8 sm:p-10 text-center space-y-4">
+              <p className="text-lg font-black text-text-primary">No questions available</p>
+              <p className="text-sm text-[color:var(--theme-text-body)]">
+                The question bank appears to be empty. The server may still be seeding the database — please try again in a moment.
+              </p>
+              <button
+                onClick={handleRestart}
+                className="inline-flex items-center gap-2 bg-primary hover:bg-primary-hover text-white px-6 py-3 rounded-full font-black text-sm cursor-pointer transition-colors"
+              >
+                Back to Setup
+              </button>
             </div>
+          </motion.div>
+        )}
 
-            {/* Slider for Question Count */}
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <label className="text-sm font-bold text-text-primary">
-                  Number of Items:
-                </label>
-                <span className="text-xs bg-[color:var(--theme-canvas)] px-2.5 py-1 rounded-full border border-accent-periwinkle font-black text-text-primary">
-                  {itemCount} Questions
-                </span>
-              </div>
-              <input
-                type="range"
-                min="5"
-                max="20"
-                step="5"
-                value={itemCount}
-                onChange={(e) => setItemCount(parseInt(e.target.value, 10))}
-                className="w-full h-2 bg-[color:var(--theme-surface)] rounded-lg appearance-none cursor-pointer accent-primary border border-accent-periwinkle"
+        {view === "active" && activeQuestions.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            exit={{ opacity: 0, y: -16 }}
+            className="w-full"
+          >
+            {selectedType === "diagnostics" ? (
+              <ReadinessQuestion
+                question={activeQuestions[activeIndex]}
+                questionIndex={activeIndex}
+                totalQuestions={activeQuestions.length}
+                selectedAnswer={selectedAnswers[activeIndex]}
+                onSelectOption={handleSelectOption}
+                onNext={handleNextQuestion}
+                onPrev={handlePrevQuestion}
+                timeLeft={timeLeft}
+                canGoNext={selectedAnswers[activeIndex] !== undefined}
+                canGoPrev={activeIndex > 0}
               />
-              <div className="flex justify-between text-[10px] text-[color:var(--theme-text-muted)] font-bold px-1">
-                <span>5 Items</span>
-                <span>10 Items</span>
-                <span>15 Items</span>
-                <span>20 Items</span>
+            ) : (
+              // Option 2 Layout: Massive Mock Exam split viewport (sidebar navigation + matrix)
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                
+                {/* Left persistent subject navigator & question grid */}
+                <aside className="lg:col-span-4 space-y-6 lg:sticky lg:top-24 max-h-[85vh] overflow-y-auto">
+                  <div className="rounded-[2rem] border border-accent-muted/30 bg-[color:var(--theme-surface)] p-6 shadow-2xl space-y-5">
+                    
+                    {/* Header summary */}
+                    <div className="flex justify-between items-start pb-4 border-b border-accent-muted/40">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-widest text-[color:var(--theme-text-muted)] font-black">Simulation Map</p>
+                        <p className="text-base font-black text-text-primary mt-1">{answeredCount} of 250 Completed</p>
+                      </div>
+                      <button
+                        onClick={handleFinishExam}
+                        className="inline-flex items-center gap-2 rounded-full bg-primary hover:bg-primary-hover px-4 py-2 text-xs font-black uppercase tracking-wider text-white shadow-md cursor-pointer transition-colors"
+                      >
+                        Finish Exam
+                      </button>
+                    </div>
+
+                    {/* Subjects Menu */}
+                    <div className="space-y-2">
+                      {SUBJECTS.map((subj) => {
+                        const start = subjectStartIndex(subj);
+                        const answeredInSubj = Array.from({ length: 50 }, (_, i) => selectedAnswers[start + i] !== undefined).filter(Boolean).length;
+                        const isFocus = activeSubject === subj;
+                        
+                        return (
+                          <button
+                            key={subj}
+                            type="button"
+                            onClick={() => {
+                              setActiveSubject(subj);
+                              setActiveIndex(start);
+                            }}
+                            className={`w-full text-left p-4 rounded-xl border text-sm sm:text-xs font-bold transition-all flex items-center justify-between min-h-[48px] ${
+                              isFocus
+                                ? "bg-primary border-primary-hover text-white shadow-sm"
+                                : "bg-[color:var(--theme-canvas)]/55 border-accent-periwinkle/30 text-[color:var(--theme-text-body)] hover:border-accent-periwinkle"
+                            }`}
+                          >
+                            <span>{subj}</span>
+                            <span className={`px-2 py-0.5 rounded-full text-xs sm:text-[10px] ${isFocus ? "bg-white/20 text-white" : "bg-base-pastel text-text-primary"}`}>
+                              {answeredInSubj}/50
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Questions Matrix scroll container */}
+                    <div className="space-y-3">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-[color:var(--theme-text-muted)]">
+                        {activeSubject} Matrix:
+                      </p>
+                      <div className="grid grid-cols-5 gap-2 max-h-40 overflow-y-auto pr-1">
+                        {Array.from({ length: 50 }).map((_, i) => {
+                          const globalIdx = subjectStartIndex(activeSubject) + i;
+                          const isActive = globalIdx === activeIndex;
+                          const answered = selectedAnswers[globalIdx] !== undefined;
+                          const flagged = flaggedItems.includes(globalIdx);
+
+                          let stateClass = "bg-[color:var(--theme-canvas)] border-accent-periwinkle/35 text-[color:var(--theme-text-body)]";
+                          if (flagged) {
+                            stateClass = "bg-amber-300 border-amber-400 text-zinc-900";
+                          } else if (isActive) {
+                            stateClass = "bg-primary border-primary-hover text-white";
+                          } else if (answered) {
+                            stateClass = "bg-emerald-600 border-emerald-700 text-white";
+                          }
+
+                          return (
+                            <button
+                              key={globalIdx}
+                              onClick={() => setActiveIndex(globalIdx)}
+                              className={`aspect-square min-h-[44px] rounded-xl border text-sm sm:text-[11px] font-black transition-all hover:scale-105 cursor-pointer ${stateClass}`}
+                            >
+                              {i + 1}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Legend */}
+                    <div className="grid grid-cols-2 gap-2 text-[10px] text-[color:var(--theme-text-body)] opacity-85 pt-3 border-t border-accent-muted/20">
+                      <div className="flex items-center gap-1.5">
+                        <span className="h-2.5 w-2.5 rounded bg-primary" /> Active
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="h-2.5 w-2.5 rounded bg-emerald-600" /> Answered
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="h-2.5 w-2.5 rounded bg-[color:var(--theme-canvas)] border border-accent-periwinkle" /> Unattended
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="h-2.5 w-2.5 rounded bg-amber-300" /> Flagged
+                      </div>
+                    </div>
+                  </div>
+                </aside>
+
+                {/* Right Question card panel */}
+                <main className="lg:col-span-8 space-y-6">
+                  {/* Timer widget & overall progress */}
+                  <div className="rounded-[2rem] border border-accent-muted/30 bg-[color:var(--theme-surface)] p-6 shadow-2xl flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <div className="flex items-center gap-3">
+                      <Clock className="h-6 w-6 text-primary" />
+                      <div>
+                        <p className="text-[10px] uppercase tracking-widest text-[color:var(--theme-text-muted)] font-black">Remaining Time</p>
+                        <p className="text-2xl font-black text-text-primary">
+                          {Math.floor(timeLeft / 3600)}h {Math.floor((timeLeft % 3600) / 60)}m {timeLeft % 60}s
+                        </p>
+                      </div>
+                    </div>
+                    <div className="w-full sm:max-w-xs space-y-2">
+                      <div className="flex justify-between text-xs font-bold text-text-primary">
+                        <span>Completion Rate</span>
+                        <span>{progressValue}%</span>
+                      </div>
+                      <div className="h-2.5 bg-base-pastel rounded-full overflow-hidden">
+                        <div className="h-full bg-primary transition-all duration-200" style={{ width: `${progressValue}%` }} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Question Container */}
+                  <div className="rounded-[2rem] border border-accent-muted/30 bg-[color:var(--theme-surface)] p-6 sm:p-8 shadow-2xl">
+                    <div className="flex justify-between items-center pb-4 mb-6 border-b border-accent-muted/35">
+                      <span className="text-xs bg-[color:var(--theme-canvas)] border border-accent-periwinkle px-3 py-1 rounded-full font-bold text-text-primary">
+                        {activeQuestions[activeIndex].subject}
+                      </span>
+                      <span className="text-xs text-[color:var(--theme-text-muted)] font-black uppercase tracking-widest">
+                        Item {activeIndex - subjectStartIndex(activeQuestions[activeIndex].subject) + 1} of 50
+                      </span>
+                    </div>
+
+                    <h3 className="text-base sm:text-lg font-bold text-text-primary mb-6 leading-relaxed">
+                      {activeQuestions[activeIndex].questionText}
+                    </h3>
+
+                    <div className="space-y-3">
+                      {activeQuestions[activeIndex].options.map((opt, idx) => {
+                        const isSelected = selectedAnswers[activeIndex] === idx;
+                        return (
+                          <button
+                            key={idx}
+                            onClick={() => handleSelectOption(idx)}
+                            className={`w-full text-left p-4 sm:p-4 rounded-xl border-2 transition-all flex items-center gap-3 cursor-pointer min-h-[48px] ${
+                              isSelected
+                                ? "bg-primary border-primary-hover text-white font-bold shadow-sm"
+                                : "bg-[color:var(--theme-surface)] border-accent-muted/30 text-[color:var(--theme-text-body)] hover:border-accent-periwinkle hover:bg-[color:var(--theme-canvas)]"
+                            }`}
+                          >
+                            <span className={`h-8 w-8 sm:h-6 sm:w-6 rounded-full flex items-center justify-center border text-sm sm:text-xs font-bold flex-shrink-0 ${
+                              isSelected
+                                ? "bg-white text-primary"
+                                : "border-white/10 bg-[color:var(--theme-canvas)]/90 text-[color:var(--theme-text-muted)]"
+                            }`}>
+                              {String.fromCharCode(65 + idx)}
+                            </span>
+                            <span className="text-sm sm:text-base">{opt}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Navigation toolbar */}
+                    <div className="mt-8 pt-6 border-t border-accent-muted/30 flex flex-wrap items-center justify-between gap-3">
+                      <button
+                        onClick={toggleFlag}
+                        className={`inline-flex items-center gap-2 rounded-full border px-4 py-3 text-sm sm:text-xs font-bold transition-colors cursor-pointer min-h-[44px] ${
+                          flaggedItems.includes(activeIndex)
+                            ? "bg-amber-100 border-amber-300 text-amber-800"
+                            : "bg-[color:var(--theme-canvas)] border-accent-periwinkle text-[color:var(--theme-text-body)] hover:bg-[color:var(--theme-surface)] hover:border-accent-periwinkle"
+                        }`}
+                      >
+                        <Flag className="h-4 w-4" />
+                        {flaggedItems.includes(activeIndex) ? "Unflag" : "Flag for Review"}
+                      </button>
+
+                      <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                        <button
+                          onClick={handlePrevQuestion}
+                          disabled={activeIndex === 0}
+                          className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-4 bg-[color:var(--theme-surface)] rounded-xl text-sm font-black border border-accent-muted text-[color:var(--theme-text-body)] hover:bg-[color:var(--theme-canvas)] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer min-h-[56px] transition-colors"
+                        >
+                          Previous
+                        </button>
+                        <button
+                          onClick={handleNextQuestion}
+                          disabled={selectedAnswers[activeIndex] === undefined}
+                          className="w-full sm:w-auto flex items-center justify-center gap-2 bg-primary text-white px-8 py-4 rounded-xl text-sm font-black border border-accent-muted shadow-sm hover:bg-primary-hover cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed min-h-[56px] transition-colors"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </main>
               </div>
-            </div>
+            )}
+          </motion.div>
+        )}
 
-            {/* Difficulty Tier */}
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <label className="text-sm font-bold text-text-primary">
-                  Difficulty Tier (1-5):
-                </label>
-                <span className="text-xs bg-[color:var(--theme-canvas)] px-2.5 py-1 rounded-full border border-accent-periwinkle font-black text-text-primary">
-                  Level {selectedDifficulty}
-                </span>
-              </div>
-              <div className="grid grid-cols-5 gap-1.5 bg-[color:var(--theme-surface)] p-1 rounded-xl border border-accent-periwinkle">
-                {[1, 2, 3, 4, 5].map((lvl) => (
-                  <button
-                    key={lvl}
-                    onClick={() => setSelectedDifficulty(lvl)}
-                    className={`py-2 rounded-lg text-xs font-black transition-all cursor-pointer ${
-                      selectedDifficulty === lvl
-                        ? "bg-primary text-white shadow-sm"
-                        : "text-[color:var(--theme-text-muted)] hover:text-[color:var(--theme-text-body)]"
-                    }`}
-                  >
-                    {lvl}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Action buttons */}
-            <button
-              onClick={handleStartQuiz}
-              className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary-hover text-white py-3.5 rounded-xl font-bold border-2 border-accent-muted shadow-md cursor-pointer transition-transform hover:scale-[1.01]"
-            >
-              <Play className="h-5 w-5" /> Start Assessment
-            </button>
-          </div>
-        </section>
-      )}
-
-      {/* 2. Active Quiz Board */}
-      {quizStarted && !quizFinished && activeQuestions.length > 0 && (
-        <section className="bg-[color:var(--theme-surface)] border-2 border-accent-muted/40 rounded-2xl shadow-xl overflow-hidden animate-fade-in">
-          {/* Header Progress and Timer */}
-          <div className="bg-[color:var(--theme-canvas)] px-4 sm:px-6 py-4 flex items-center justify-between border-b border-accent-periwinkle">
-            <div className="space-y-1">
-              <span className="text-[10px] font-bold text-[color:var(--theme-text-muted)] uppercase tracking-widest">
-                Question {currentIndex + 1} of {activeQuestions.length}
-              </span>
-              <div className="flex items-center gap-2">
-                <span className="text-xs bg-[color:var(--theme-canvas)] border border-accent-periwinkle/80 px-2 py-0.5 rounded-full font-bold text-text-primary">
-                  {activeQuestions[currentIndex].subject}
-                </span>
-                <span className="text-[10px] text-[color:var(--theme-text-muted)]">
-                  Difficulty Level {activeQuestions[currentIndex].difficulty}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 bg-[color:var(--theme-canvas)] px-3 py-1.5 rounded-full border border-accent-periwinkle">
-              <Timer className={`h-4 w-4 ${timeLeft < 10 ? "text-red-500 animate-pulse" : "text-text-primary"}`} />
-              <span className={`text-sm font-black ${timeLeft < 10 ? "text-red-500" : "text-text-primary"}`}>
-                {timeLeft}s
-              </span>
-            </div>
-          </div>
-
-          {/* Time Bar indicator */}
-          <div className="w-full bg-[color:var(--theme-borders-system)]/25 h-1">
-            <div
-              className={`h-full transition-all duration-1000 ${timeLeft < 10 ? "bg-red-500" : "bg-primary-hover"}`}
-              style={{ width: `${(timeLeft / 45) * 100}%` }}
-            />
-          </div>
-
-          {/* Main Question Body */}
-          <div className="p-4 sm:p-6 lg:p-8">
-            <h3 className="text-base sm:text-lg font-bold text-text-primary mb-6 leading-relaxed">
-              {activeQuestions[currentIndex].questionText}
-            </h3>
-
-            {/* Options grid */}
-            <div className="space-y-3">
-              {activeQuestions[currentIndex].options.map((opt, idx) => {
-                const isSelected = selectedAnswers[currentIndex] === idx;
-                return (
-                  <button
-                    key={idx}
-                    onClick={() => handleSelectOption(idx)}
-                    className={`w-full text-left p-4 rounded-xl border-2 transition-all flex items-center gap-3 cursor-pointer ${
-                      isSelected
-                        ? "bg-[color:var(--theme-surface)]/80 border-accent-muted text-text-primary font-bold shadow-sm"
-                        : "bg-[color:var(--theme-surface)] border-accent-muted/30 text-[color:var(--theme-text-body)] hover:border-accent-periwinkle hover:bg-[color:var(--theme-canvas)]"
-                    }`}
-                  >
-                    <span className={`h-6 w-6 rounded-full flex items-center justify-center border text-xs font-bold ${
-                      isSelected
-                        ? "bg-primary border-primary-hover text-white"
-                        : "border-white/10 bg-[color:var(--theme-canvas)]/90 text-[color:var(--theme-text-muted)]"
-                    }`}>
-                      {String.fromCharCode(65 + idx)}
-                    </span>
-                    {opt}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Footer Controls */}
-          <div className="bg-[color:var(--theme-canvas)] border-t border-white/10 px-4 sm:px-8 py-4 flex flex-col sm:flex-row justify-between items-center gap-3">
-            <p className="text-[11px] text-zinc-400">
-              * Click an option above to select. Time resets each item.
-            </p>
-            <button
-              onClick={handleNextQuestion}
-              disabled={selectedAnswers[currentIndex] === undefined}
-              className="flex items-center gap-1.5 bg-primary text-white px-5 py-2.5 rounded-xl text-xs font-bold border border-accent-muted shadow-sm hover:bg-primary-hover transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {currentIndex < activeQuestions.length - 1 ? (
-                <>Next Item <ChevronRight className="h-4 w-4" /></>
-              ) : (
-                "Finish Assessment"
-              )}
-            </button>
-          </div>
-        </section>
-      )}
-
-      {/* 3. Evaluation and Score Results Modal */}
-      {quizFinished && (
-        <section className="bg-[color:var(--theme-surface)] border-2 border-accent-muted/40 rounded-2xl shadow-xl overflow-hidden animate-fade-in">
-          {/* Top banner */}
-          <div className="bg-[color:var(--theme-surface)]/80 p-4 sm:p-6 lg:p-8 border-b border-accent-periwinkle text-center">
-            <div className="inline-flex p-4 bg-[color:var(--theme-surface)] rounded-full shadow-md border-2 border-accent-periwinkle mb-4">
-              <Award className="h-12 w-12 text-primary-hover animate-bounce" />
-            </div>
-            <h2 className="text-2xl font-black text-text-primary tracking-tight">Assessment Completed</h2>
-            <p className="text-xs text-[color:var(--theme-text-muted)] font-bold uppercase tracking-widest mt-1">
-              Tanglaw Competency Evaluator
-            </p>
-          </div>
-
-          <div className="p-4 sm:p-6 lg:p-8 space-y-6">
-            {/* Score circle / level */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
-              <div className="text-center p-6 bg-base-light/35 border border-accent-periwinkle rounded-2xl">
-                <span className="text-xs font-bold text-[color:var(--theme-text-muted)] block uppercase mb-1">Your Score</span>
-                <span className="text-4xl font-black text-text-primary">
-                  {score} <span className="text-lg text-[color:var(--theme-text-muted)] font-normal">/ {activeQuestions.length}</span>
-                </span>
-                <span className="block text-xs text-[color:var(--theme-text-body)] font-semibold mt-1">
-                  ({scorePercentage}% accuracy)
-                </span>
-              </div>
-
-              <div className="md:col-span-2 p-6 rounded-2xl border-2 flex gap-4 items-start bg-[color:var(--theme-canvas)]">
-                <div className="mt-1 flex-shrink-0">
-                  {readinessDetails.icon}
-                </div>
-                <div>
-                  <h4 className="font-black text-sm text-text-primary">
-                    Readiness Level: <span className="underline decoration-accent-muted underline-offset-2">{readinessDetails.level}</span>
-                  </h4>
-                  <p className="text-xs text-zinc-600 mt-2 leading-relaxed">
-                    {readinessDetails.text}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Recommendations segment */}
-            <div className="bg-[color:var(--theme-canvas)]/50 border border-accent-periwinkle rounded-2xl p-6">
-              <h3 className="text-sm font-bold text-text-primary mb-3 flex items-center gap-1.5">
-                <BookMarked className="h-4 w-4" /> Targeted Study Recommendations:
-              </h3>
-              <ul className="text-xs text-[color:var(--theme-text-body)] space-y-2">
-                {topicRecommendations.map((rec, index) => (
-                  <li key={index} className="flex items-start gap-2">
-                    <span className="h-2 w-2 rounded-full bg-accent-rose mt-1 flex-shrink-0"></span>
-                    <span>{rec}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Actions */}
-            <button
-              onClick={handleRestart}
-              className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary-hover text-white py-3.5 rounded-xl font-bold border-2 border-accent-muted shadow-md cursor-pointer transition-transform hover:scale-[1.01]"
-            >
-              <RotateCcw className="h-4 w-4" /> Start New Assessment
-            </button>
-          </div>
-        </section>
-      )}
+        {/* ── 3. EVALUATION AND SCORE RESULTS FEEDBACK ──────────────────────── */}
+        {view === "feedback" && (
+          <ReadinessFeedback
+            score={score}
+            total={activeQuestions.length}
+            scorePercentage={scorePercentage}
+            subjectScores={subjectScores}
+            readinessDetails={readinessDetails}
+            studyRecommendations={studyRecommendations}
+            onRestart={handleRestart}
+          />
+        )}
+        
+      </AnimatePresence>
     </div>
   );
 }

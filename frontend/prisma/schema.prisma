@@ -34,14 +34,23 @@ enum QuestionType {
   FILIPINO
 }
 
+enum AssessmentMode {
+  DIAGNOSTIC
+  MOCK
+}
+
 model Question {
-  id            String       @id @default(uuid())
-  type          QuestionType
-  difficulty    Int
-  text          String       @db.Text
-  choices       Json
-  correctAnswer String
-  explanation   String       @db.Text
+  id             String          @id @default(uuid())
+  type           QuestionType
+  difficulty     Int
+  assessmentMode AssessmentMode  @default(DIAGNOSTIC)
+  sourceLabel    String?
+  sequenceNo     Int             @default(0)
+  isActive       Boolean         @default(true)
+  text           String          @db.Text
+  choices        Json
+  correctAnswer  String
+  explanation    String          @db.Text
 }
 
 model User {

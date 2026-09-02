@@ -304,3 +304,121 @@ max_parallel_agents: 8
 # Run validator after every pipeline (recommended: true)
 always_validate: true
 ```
+
+## Agent Pipeline Guardrails (P0–P3)
+
+The following rules must be followed by Buffy at every spawn point to prevent silent failures.
+They are ranked by priority: P0 (must-do), P1 (should-do), P2 (good-to-do), P3 (nice-to-do).
+
+### P0 — Critical (Silent Failure Prevention)
+
+**F1 — Task-Drift Guard**
+
+F1 operates at **two layers**: a prompt-level preamble AND a runtime enforcement gate. Both are required.
+
+### Layer 1: Prompt-Level Preamble
+
+When spawning any reasoning agent (`metabuff-reasoner`, `thinker-gpt`, `thinker-with-files-gemini`, `metabuff-arch`), always prefix the prompt with a task-verification block:
+```
+TASK VERIFICATION
+─────────────────
+Your assigned task is: "<exact task>". This is a meta-analysis / reasoning task.
+Do NOT call terminal commands, search the codebase, read files, or edit files.
+Ignore project context (file trees, git diffs, code snippets) unless directly relevant.
+Begin by restating your understanding of the task before proceeding.
+
+SELF-ABORT CLAUSE
+─────────────────
+If you detect yourself reaching for any of the following, you are drifting off-task:
+- A tool call (run_terminal_command, code_search, str_replace, write_file, read_files, or any other tool except set_output)
+- A sub-agent spawn (spawn_agents — reasoning agents may not delegate tool work to sub-agents)
+
+If drift is detected:
+1. STOP immediately.
+2. Call set_output with: { "message": "[F1 ABORT] Task-drift detected. I attempted to call a blocked tool or spawn a sub-agent. Aborting." }
+3. Do NOT proceed with the blocked action.
+```
+
+### Layer 2: Runtime Enforcement (Tool-Access Gate)
+
+Prompt-level instructions are insufficient — reasoning agents have been demonstrated to ignore the preamble and call tools anyway (see `F1-ENFORCEMENT-ADR.md`).
+
+The runtime enforcement gate sits in the tool dispatch layer and blocks tool calls from reasoning agents at the system level:
+
+**Gated agents**: `metabuff-reasoner`, `thinker-gpt`, `thinker-with-files-gemini`, `metabuff-arch`
+**Allowed tools**: `set_output` only
+**Blocked behavior**: Any other tool call is intercepted and returns an F1 error. The agent session is optionally terminated.
+**Spawn prevention**: Reasoning agents may not spawn sub-agents (prevents bypass via spawning a basher).
+
+**Configuration**: `.impeccable/live/f1-guard.json`
+**Full ADR**: `F1-ENFORCEMENT-ADR.md`
+
+### Enforcement Rules for Buffy
+
+1. Always include the F1 preamble (with self-abort clause) when spawning any reasoning agent.
+2. Ensure `.impeccable/live/f1-guard.json` exists and is loaded by the agent harness.
+3. If the runtime gate is NOT available (e.g., running in an environment without hook support), the preamble becomes the sole defense. In this case, add stronger language to the preamble and monitor the agent's output for drift.
+
+**F2 — Destructive Command Classifier**
+Before every `basher` or `tmux-cli` spawn, classify the command and enforce:
+- **READ_ONLY** (`ls`, `cat`, `head`, `tail`, `grep`, `find`, `echo`, `npx tsc --noEmit`, `npx prisma generate`): Safe to run. Still include `what_to_summarize`.
+- **READ_WRITE** (`npm install`, `npx prisma db push`, `prisma migrate`, `git add`, `git commit`): Must include `what_to_summarize` describing what changed and confirmation of no adverse effects.
+- **DESTRUCTIVE** (`rm -rf`, `git push --force`, `npx prisma db push --force-reset`, `npm publish`, `npm run <script>` with write access, `git reset --hard`): **Must ask the user for confirmation before spawning.** Never auto-run.
+
+### P1 — High (Integrity Protection)
+
+**F3 — Cascade Validation (metabuff-mega)**
+When using `metabuff-mega`:
+1. Validate each wave's outputs before spawning the next wave.
+2. Check that file edits make sense given the task.
+3. If any output is clearly wrong, do not proceed — re-spawn or fix before continuing.
+
+**F4 — Context Minimization**
+When spawning any sub-agent:
+1. Strip unrelated conversation turns from the prompt.
+2. Do not dump full file trees, git diffs, or project-wide context into sub-agent prompts.
+3. Only include context that is directly relevant to the agent's specific task.
+4. Example: if spawning a basher to `npm run build`, don't include the entire project architecture.
+
+**F5 — Diff Review After Every Edit**
+After every `str_replace` or `write_file`:
+1. Spawn `code-reviewer-deepseek-flash` to review the changes.
+2. Verify the change only modified what was intended (no phantom edits).
+3. If the change involves external libraries, verify imports are correct.
+
+### P2 — Medium (Quality Assurance)
+
+**F6 — File Lock Tracking for Parallel Agents**
+When spawning parallel agents (via `metabuff-mega`):
+1. Track which files each agent is editing.
+2. If two agents in the same wave target the same file, do not run them in parallel.
+   Instead, run them sequentially with a merge review step in between.
+3. After parallel execution, check for overlapping edits and flag conflicts.
+
+**F7 — Automatic Regex Guard**
+After any `str_replace` or `write_file` that contains regex patterns
+(`.match()`, `.replace()`, `new RegExp()`, `RegExp`, or string pattern args):
+1. Auto-spawn `metabuff-regex-guard` to validate the regex patterns.
+2. LLMs frequently produce runtime-invalid regex that TypeScript silently accepts.
+
+### P3 — Low (Housekeeping)
+
+**F8 — tmux Session Cleanup**
+After spawning `tmux-cli`:
+1. Track the session name from the agent's output.
+2. If the agent fails, times out, or errors: immediately run `tmux kill-session -t <sessionName>`.
+3. Include cleanup in any error handling path.
+
+**F9 — Model Check at Session Start**
+At the start of each session (or when spawning credit-costly agents):
+1. Note the active model to the user if ambiguous.
+2. If running on a fallback model (e.g., deepseek-v4-flash instead of deepseek-v4-pro),
+   explicitly notify the user: "Running on [model]. Quality may differ from primary."
+
+**F10 — Output Validation for Data Agents**
+After receiving results from `code-searcher` or `file-picker`:
+1. Verify the output makes sense before acting on it.
+2. If `code-searcher` returns zero results, try alternate patterns before concluding
+   the code doesn't exist.
+3. If `file-picker` returns files unrelated to the task, re-pick with more specific
+   directories.

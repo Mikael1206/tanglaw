@@ -2,13 +2,21 @@
 
 /**
  * Signup page for the public authentication flow.
- * Creates a simulated user session in local storage.
+ * Creates the account, then lets NextAuth establish the session.
  */
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { UserPlus, ArrowLeft, CheckCircle2, ShieldAlert } from "lucide-react";
-import { motion } from "framer-motion";
+import dynamic from "next/dynamic";
+import { GlowingText } from "../../../../components/ui/glowing-text";
+import AuthProviderButtons from "@/components/auth-provider-buttons";
+import { getAuthErrorMessage } from "@/lib/auth-constants";
+
+const EtheralShadow = dynamic(
+  () => import("../../../../components/ui/etheral-shadow").then((mod) => mod.EtheralShadow),
+  { ssr: false }
+);
 import { signupAccount } from "@/lib/backend";
 import { signIn } from "next-auth/react";
 
@@ -19,7 +27,6 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [showOAuth, setShowOAuth] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,15 +46,15 @@ export default function SignupPage() {
         password,
       });
 
-      if (signInResult?.error) {
-        setMessage({ type: "error", text: signInResult.error });
+      if (signInResult?.ok !== true) {
+        setMessage({ type: "error", text: getAuthErrorMessage(signInResult?.error) ?? "Unable to create account. Please try again." });
       } else {
         router.push("/dashboard");
       }
-    } catch (error) {
+    } catch {
       setMessage({
         type: "error",
-        text: error instanceof Error ? error.message : "Unable to create account.",
+        text: "Unable to create account. Please try again.",
       });
     } finally {
       setLoading(false);
@@ -55,13 +62,20 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="relative overflow-hidden min-h-screen bg-[color:var(--theme-canvas)] px-4 py-16 sm:px-6 lg:px-8 text-[color:var(--theme-text-body)]">
+    <div className="relative overflow-hidden min-h-screen bg-[color:var(--theme-canvas)] text-[color:var(--theme-text-body)] flex flex-col">
+      <EtheralShadow
+        animation={{ scale: 60, speed: 80 }}
+        noise={{ opacity: 0.8, scale: 1.0 }}
+        sizing="cover"
+        lightColor="rgba(200, 230, 175, 0.85)"
+      />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(27,64,121,0.14),_transparent_18%)]" />
-      <div className="relative mx-auto grid max-w-6xl gap-10 lg:grid-cols-[0.95fr_0.9fr]">
+      <div className="relative z-10 flex-1 flex items-center justify-center px-4 pt-28 pb-16 sm:px-6 lg:px-8">
+        <div className="mx-auto grid w-full max-w-6xl gap-10 lg:grid-cols-[0.95fr_0.9fr]">
         <section className="rounded-[2rem] border border-white/10 bg-[color:var(--theme-surface)]/90 p-10 shadow-2xl shadow-black/25 backdrop-blur-sm">
           <p className="text-[10px] uppercase tracking-[0.34em] text-[color:var(--theme-typography-secondary)] font-black">New Scholar Portal</p>
           <h1 className="mt-6 text-4xl font-black tracking-[-0.04em] text-[color:var(--theme-typography-main)] sm:text-5xl">
-            Start your TANGLAW journey.
+            <GlowingText glowType="primary">Start your TANGLAW journey.</GlowingText>
           </h1>
           <p className="mt-5 text-base leading-8 text-[color:var(--theme-text-body)]">
             Create your student account and gain access to personalized scholarship matching, exam review tools, and the Owel learning companion.
@@ -77,9 +91,11 @@ export default function SignupPage() {
         </section>
 
         <div className="rounded-[2rem] border border-white/10 bg-[color:var(--theme-surface)]/95 p-8 shadow-2xl shadow-black/25 backdrop-blur-sm">
-          <div className="text-center mb-8">
+          <div className="text-center mb-6">
             <p className="text-[11px] uppercase tracking-[0.34em] text-[color:var(--theme-typography-secondary)] font-black">Create your account</p>
-            <h2 className="mt-4 text-3xl font-black text-[color:var(--theme-typography-main)]">Register as a scholar</h2>
+            <h2 className="mt-3 text-3xl font-black text-[color:var(--theme-typography-main)]">
+              <GlowingText glowType="secondary">Register as a scholar</GlowingText>
+            </h2>
           </div>
 
           {message && (
@@ -101,7 +117,7 @@ export default function SignupPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <label className="space-y-2 text-sm text-[color:var(--theme-text-body)]">
               <span className="font-semibold text-[color:var(--theme-typography-main)]">Full Name</span>
               <input
@@ -141,53 +157,26 @@ export default function SignupPage() {
             <button
               type="submit"
               disabled={loading}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-black uppercase tracking-[0.18em] text-white transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:bg-white/10"
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-black uppercase tracking-[0.18em] text-white transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:bg-white/10"
             >
               {loading ? "Registering..." : <><UserPlus className="h-4 w-4" /> Create Account</>}
             </button>
 
-            <div className="pt-4 border-t border-white/10">
-              <button
-                type="button"
-                onMouseEnter={() => setShowOAuth(true)}
-                onMouseLeave={() => setShowOAuth(false)}
-                className="w-full text-center text-sm font-semibold text-[color:var(--theme-typography-secondary)] hover:text-[color:var(--theme-typography-main)] transition"
-              >
-                Prefer fast sign-up?
-              </button>
-
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={showOAuth ? { height: "auto", opacity: 1 } : { height: 0, opacity: 0 }}
-                transition={{ duration: 0.3 }}
-                className="overflow-hidden"
-                onMouseEnter={() => setShowOAuth(true)}
-                onMouseLeave={() => setShowOAuth(false)}
-              >
-                <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-                  <button
-                    type="button"
-                    className="w-full rounded-full border border-white/15 bg-[color:var(--theme-canvas)]/90 px-4 py-3 text-sm font-semibold text-[color:var(--theme-typography-main)] transition hover:bg-[color:var(--theme-canvas)]"
-                  >
-                    Continue with Google
-                  </button>
-                  <button
-                    type="button"
-                    className="w-full rounded-full border border-white/15 bg-[color:var(--theme-canvas)]/90 px-4 py-3 text-sm font-semibold text-[color:var(--theme-typography-main)] transition hover:bg-[color:var(--theme-canvas)]"
-                  >
-                    Continue with Microsoft
-                  </button>
-                </div>
-              </motion.div>
-            </div>
+            <AuthProviderButtons
+              actionLabel="Continue"
+              disabled={loading}
+            />
           </form>
 
-          <p className="mt-8 text-center text-sm text-[color:var(--theme-text-body)]">
+          <p className="mt-6 text-center text-sm text-[color:var(--theme-text-body)]">
             Already a scholar?{' '}
-            <Link href="/login" className="font-bold text-[color:var(--theme-typography-main)] hover:underline">
-              Log In <ArrowLeft className="inline-block h-3 w-3" />
+            <Link href="/login" className="font-bold hover:underline">
+              <GlowingText glowType="secondary" className="text-[color:var(--theme-typography-main)]">
+                Log In <ArrowLeft className="inline-block h-3 w-3" />
+              </GlowingText>
             </Link>
           </p>
+        </div>
         </div>
       </div>
     </div>

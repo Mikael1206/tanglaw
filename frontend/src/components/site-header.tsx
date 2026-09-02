@@ -2,226 +2,218 @@
 
 /**
  * Global site header shown on public pages.
+ * Pill-shaped glassmorphism navbar inspired by Landas.
  * Hides itself when the user is inside dashboard routes.
  */
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useSyncExternalStore } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useSession } from "next-auth/react";
-import { Menu, X } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
 import ThemeChanger from "@/components/theme-changer";
+import StaggeredMenu, {
+  type StaggeredMenuItem,
+  type StaggeredMenuSocialItem,
+} from "@/components/ui/StaggeredMenu";
+import GooeyNav, { type GooeyNavItem } from "@/components/ui/GooeyNav";
+import { getAuthToken } from "@/lib/auth-storage";
+
+function subscribeAuth(callback: () => void) {
+  window.addEventListener("storage", callback);
+  window.addEventListener("tanglaw-auth-change", callback);
+  return () => {
+    window.removeEventListener("storage", callback);
+    window.removeEventListener("tanglaw-auth-change", callback);
+  };
+}
+
+function getAuthSnapshot() {
+  return !!getAuthToken();
+}
+
+function getAuthServerSnapshot() {
+  return false;
+}
 
 export default function SiteHeader() {
   const pathname = usePathname();
-  const { status } = useSession();
   const isDashboard = pathname?.startsWith("/dashboard");
-  const isAuthenticated = status === "authenticated";
+  const isHome = pathname === "/";
+  const isAuthenticated = useSyncExternalStore(subscribeAuth, getAuthSnapshot, getAuthServerSnapshot);
   const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const [scrolledAway, setScrolledAway] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const [atTop, setAtTop] = useState(true);
+  const lastScrollY = useRef(0);
 
-  // Close mobile menu on route change
-  useEffect(() => {
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (prevPathname !== pathname) {
+    setPrevPathname(pathname);
+    setScrolledAway(false);
     setMenuOpen(false);
+    setAtTop(true);
+  }
+
+  useEffect(() => {
+    lastScrollY.current = 0;
   }, [pathname]);
 
-  // Close mobile menu on click outside
+  // Visibility: show at top or on hover; other pages also visible unless scrolled away
+  const isVisible = menuOpen || hovered || atTop || (!isHome && !scrolledAway);
+
+  const menuItems: StaggeredMenuItem[] = [
+    { label: "Home", ariaLabel: "Go to home page", link: "/" },
+    { label: "About", ariaLabel: "Learn about TANGLAW", link: "/about" },
+    { label: "Contact", ariaLabel: "Contact us", link: "/contact" },
+    ...(isAuthenticated
+      ? [{ label: "Dashboard", ariaLabel: "Go to dashboard", link: "/dashboard" }]
+      : [
+          { label: "Log In", ariaLabel: "Log in to TANGLAW", link: "/login" },
+          { label: "Sign Up", ariaLabel: "Create an account", link: "/signup" },
+        ]),
+  ];
+
+  const desktopNavItems: GooeyNavItem[] = [
+    { label: "Home", href: "/" },
+    { label: "About", href: "/about" },
+    { label: "Contact", href: "/contact" },
+    ...(isAuthenticated
+      ? [{ label: "Dashboard", href: "/dashboard" }]
+      : [{ label: "Log In", href: "/login" }]),
+  ];
+
+  const socialItems: StaggeredMenuSocialItem[] = [
+    { label: "PUP Manila", link: "https://pup.edu.ph" },
+    { label: "About Us", link: "/about" },
+  ];
+
   useEffect(() => {
-    if (!menuOpen) return;
-    function handleClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
+    if (isDashboard) return;
+    const handleScroll = () => {
+      const currentY = window.scrollY;
+      setAtTop(currentY < 30);
+      if (currentY > 60 && currentY > lastScrollY.current) {
+        setScrolledAway(true);
+      } else if (currentY < lastScrollY.current) {
+        if (currentY < 30) setScrolledAway(false);
       }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [menuOpen]);
+      lastScrollY.current = currentY;
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [isDashboard]);
 
   if (isDashboard) {
     return null;
   }
 
   return (
-    <header className="relative z-50 w-full border-b border-white/10 bg-[color:var(--theme-component-backdrop)]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-24 flex items-center justify-between gap-4">
-        <Link href="/" className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-full border border-white/10 bg-[color:var(--theme-surface)] shadow-lg shadow-black/20 flex items-center justify-center">
-            <Image
-              src="/assets/owel-head.png"
-              alt="Owel Logo Avatar"
-              width={38}
-              height={38}
-              className="object-cover"
-            />
-          </div>
-          <span className="font-display text-xl font-black tracking-[0.12em] text-[color:var(--theme-typography-main)]">
-            TANGLAW
-          </span>
-        </Link>
+    <>
+      {/* Invisible trigger zone at top — reveals navbar on hover when hidden */}
+      {!isVisible && (
+        <div
+          className="fixed top-0 left-0 right-0 z-[60] h-20"
+          onMouseEnter={() => setHovered(true)}
+          aria-hidden="true"
+        />
+      )}
 
-        <nav className="hidden md:flex items-center gap-2 text-[11px] uppercase tracking-[0.34em] text-[color:var(--theme-typography-secondary)] font-black">
-          <Link
-            href="/"
-            className={`transition px-3 py-2 rounded-full ${
-              pathname === "/"
-                ? "border border-primary/20 bg-primary/75 text-white"
-                : "hover:text-[color:var(--theme-typography-main)]"
-            }`}
-          >
-            Home
-          </Link>
-          <Link
-            href="/about"
-            className={`transition px-3 py-2 rounded-full ${
-              pathname === "/about"
-                ? "border border-primary/20 bg-primary/75 text-white"
-                : "hover:text-[color:var(--theme-typography-main)]"
-            }`}
-          >
-            About
-          </Link>
-          <Link
-            href="/contact"
-            className={`transition px-3 py-2 rounded-full ${
-              pathname === "/contact"
-                ? "border border-primary/20 bg-primary/75 text-white"
-                : "hover:text-[color:var(--theme-typography-main)]"
-            }`}
-          >
-            Contact
-          </Link>
-          {isAuthenticated ? (
-            <Link
-              href="/dashboard"
-              className={`transition px-4 py-2 rounded-full ${
-                pathname?.startsWith("/dashboard")
-                  ? "border border-primary/20 bg-primary/75 text-white hover:bg-primary-hover"
-                  : "hover:text-[color:var(--theme-typography-main)]"
-              }`}
-            >
-              Dashboard
+      <header
+        className={`fixed top-0 left-0 right-0 z-50 flex items-start justify-center px-4 pt-4 sm:px-6 sm:pt-5 transition-all duration-700 ease-out ${
+          isVisible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4 pointer-events-none"
+        }`}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+      >
+        {/* Desktop layout: logo inside pill nav */}
+        <div className="hidden md:flex w-full max-w-4xl items-center justify-center">
+          <nav className="flex items-center gap-1 rounded-full border border-white/10 bg-[color:var(--theme-surface)]/60 px-3 py-2.5 shadow-[0_4px_30px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-xl transition-all duration-700 sm:gap-2 sm:px-5">
+            <Link href="/" className="flex items-center gap-2 mr-1" aria-label="Go to home">
+              <div className="h-8 w-8 rounded-full border border-white/10 bg-[color:var(--theme-surface)] shadow-lg shadow-black/20 flex items-center justify-center">
+                <Image
+                  src="/assets/owel-head.webp"
+                  alt="Owel Logo"
+                  width={26}
+                  height={26}
+                  className="object-cover"
+                />
+              </div>
+              <span className="font-display text-lg font-black tracking-[0.12em] text-[color:var(--theme-typography-main)]">
+                TANGLAW
+              </span>
+              <span className="rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-primary shadow-sm">
+                Beta
+              </span>
             </Link>
-          ) : (
-            <>
-              <Link
-                href="/login"
-                className="rounded-full border border-white/10 bg-[color:var(--theme-surface)]/70 px-4 py-2 transition hover:bg-[color:var(--theme-surface)]"
-              >
-                Log In
-              </Link>
+
+            <div className="mx-1 h-4 w-px bg-white/10 sm:mx-2" />
+
+            <GooeyNav
+              items={desktopNavItems}
+              activeHref={pathname}
+              particleCount={15}
+              particleDistances={[90, 10]}
+              particleR={100}
+              animationTime={600}
+              timeVariance={300}
+              colors={[1, 2, 3, 1, 2, 3, 1, 4]}
+            />
+
+            {!isAuthenticated && (
               <Link
                 href="/signup"
-                className="rounded-full border border-primary/20 bg-primary/75 px-4 py-2 text-white transition hover:bg-primary-hover"
+                className="rounded-full bg-primary/90 px-4 py-1.5 text-[10px] font-semibold tracking-[0.18em] uppercase text-white shadow-[0_0_16px_rgba(27,64,121,0.2)] transition-all duration-500 hover:bg-primary hover:shadow-[0_0_20px_rgba(27,64,121,0.3)] ml-1"
               >
                 Sign Up
               </Link>
-            </>
-          )}
-        </nav>
-
-        <div className="flex items-center gap-3" ref={menuRef}>
-          {/* Mobile hamburger */}
-          <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="md:hidden flex items-center justify-center h-10 w-10 rounded-full border border-white/10 bg-[color:var(--theme-surface)]/80 hover:bg-[color:var(--theme-surface)] transition"
-            aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
-            aria-expanded={menuOpen}
-          >
-            {menuOpen ? (
-              <X className="h-5 w-5 text-[color:var(--theme-typography-main)]" />
-            ) : (
-              <Menu className="h-5 w-5 text-[color:var(--theme-typography-main)]" />
             )}
-          </button>
 
-          {/* Mobile backdrop + dropdown panel */}
-          <AnimatePresence>
-            {menuOpen && (
-              <>
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="fixed inset-0 z-40 md:hidden bg-black/35"
-                  onClick={() => setMenuOpen(false)}
-                  aria-hidden="true"
-                />
-                <motion.div
-                  initial={{ opacity: 0, y: -12, scale: 0.97 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -12, scale: 0.97 }}
-                  transition={{ duration: 0.22, ease: "easeOut" }}
-                  className="absolute top-24 left-0 right-0 z-50 md:hidden border-b border-white/10 bg-[color:var(--theme-component-backdrop)] shadow-2xl shadow-black/30 origin-top"
-                >
-                <nav className="max-w-7xl mx-auto px-4 sm:px-6 py-5 flex flex-col gap-3 text-[11px] uppercase tracking-[0.34em] text-[color:var(--theme-typography-secondary)] font-black">
-                  <Link
-                    href="/"
-                    className={`transition px-4 py-3 rounded-full ${
-                      pathname === "/"
-                        ? "border border-primary/20 bg-primary/75 text-white"
-                        : "hover:text-[color:var(--theme-typography-main)] hover:bg-white/5"
-                    }`}
-                  >
-                    Home
-                  </Link>
-                  <Link
-                    href="/about"
-                    className={`transition px-4 py-3 rounded-full ${
-                      pathname === "/about"
-                        ? "border border-primary/20 bg-primary/75 text-white"
-                        : "hover:text-[color:var(--theme-typography-main)] hover:bg-white/5"
-                    }`}
-                  >
-                    About
-                  </Link>
-                  <Link
-                    href="/contact"
-                    className={`transition px-4 py-3 rounded-full ${
-                      pathname === "/contact"
-                        ? "border border-primary/20 bg-primary/75 text-white"
-                        : "hover:text-[color:var(--theme-typography-main)] hover:bg-white/5"
-                    }`}
-                  >
-                    Contact
-                  </Link>
-                  {isAuthenticated ? (
-                    <Link
-                      href="/dashboard"
-                      className={`transition px-4 py-3 rounded-full ${
-                        pathname?.startsWith("/dashboard")
-                          ? "border border-primary/20 bg-primary/75 text-white"
-                          : "hover:text-[color:var(--theme-typography-main)] hover:bg-white/5"
-                      }`}
-                    >
-                      Dashboard
-                    </Link>
-                  ) : (
-                    <>
-                      <Link
-                        href="/login"
-                        className="rounded-full border border-white/10 bg-[color:var(--theme-surface)]/70 px-4 py-3 transition hover:bg-[color:var(--theme-surface)]"
-                      >
-                        Log In
-                      </Link>
-                      <Link
-                        href="/signup"
-                        className="rounded-full border border-primary/20 bg-primary/75 px-4 py-3 text-white transition hover:bg-primary-hover"
-                      >
-                        Sign Up
-                      </Link>
-                    </>
-                  )}
-                </nav>
-              </motion.div>
-              </>
-            )}
-          </AnimatePresence>
+            <div className="mx-1 h-4 w-px bg-white/10 sm:mx-2" />
 
-          <ThemeChanger />
+            <ThemeChanger />
+          </nav>
         </div>
-      </div>
-    </header>
+
+        {/* Mobile layout: logo left, StaggeredMenu right */}
+        <div className="md:hidden flex items-center justify-between w-full">
+          <Link href="/" className="flex items-center gap-2" aria-label="Go to home">
+            <div className="h-9 w-9 rounded-full border border-white/10 bg-[color:var(--theme-surface)] shadow-lg shadow-black/20 flex items-center justify-center">
+              <Image
+                src="/assets/owel-head.webp"
+                alt="Owel Logo"
+                width={30}
+                height={30}
+                className="object-cover"
+              />
+            </div>
+            <span className="font-display text-xl font-black tracking-[0.12em] text-[color:var(--theme-typography-main)]">
+              TANGLAW
+            </span>
+            <span className="rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-primary shadow-sm">
+              Beta
+            </span>
+          </Link>
+
+          <div className="flex items-center gap-2 relative z-50">
+            <ThemeChanger />
+
+            <StaggeredMenu
+              position="right"
+              items={menuItems}
+              socialItems={socialItems}
+              displaySocials={true}
+              displayItemNumbering={true}
+              colors={["#B8C9E8", "#7F9C96", "#1B4079"]}
+              accentColor="var(--theme-primary, #1B4079)"
+              menuButtonColor="var(--theme-typography-main, #1B4079)"
+              openMenuButtonColor="var(--theme-typography-main, #1B4079)"
+              isFixed={true}
+              showLogo={false}
+              onMenuOpen={() => setMenuOpen(true)}
+              onMenuClose={() => setMenuOpen(false)}
+            />
+          </div>
+        </div>
+      </header>
+    </>
   );
 }

@@ -52,3 +52,4 @@ frontend/.next/
 # /frontend/public/faiss_index/
 
 
+.agents/

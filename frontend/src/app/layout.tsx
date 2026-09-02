@@ -2,30 +2,49 @@
  * Root layout for the Next.js application.
  * Configures fonts, metadata, global styles, and shared page chrome.
  */
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { Inter, Outfit } from "next/font/google";
-import Link from "next/link";
 import "./globals.css";
-import NatureCanvas from "@/components/nature-canvas";
+import { DynamicNatureCanvas } from "@/components/dynamic-backgrounds";
+import GlowCursorLayer from "@/components/glow-cursor-layer";
 import SiteHeader from "@/components/site-header";
-import NextAuthProvider from "@/components/NextAuthProvider";
+import SiteFooter from "@/components/site-footer";
+import { ThemeProvider } from "next-themes";
+import FaviconSwitcher from "@/components/favicon-switcher";
 
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-sans",
   display: "swap",
+  weight: ["400", "600", "700"],
+  preload: true,
 });
 
 const outfit = Outfit({
   subsets: ["latin"],
   variable: "--font-display",
   display: "swap",
+  weight: ["700"],
+  preload: true,
 });
 
 export const metadata: Metadata = {
   title: "TANGLAW | AI-Powered Scholarship Navigation",
   description:
     "TANGLAW is an AI-first scholarship navigator for Filipino learners, combining readiness checks, grant discovery, and guidance into a single academic dashboard.",
+  icons: {      icon: [
+        { url: "/assets/owel-head.svg", sizes: "any", type: "image/svg+xml" },
+        { url: "/favicon.ico", sizes: "16x16 32x32 48x48" },
+        { url: "/assets/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+        { url: "/assets/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+        { url: "/assets/favicon-48x48.png", sizes: "48x48", type: "image/png" },
+      ],
+    apple: [
+      { url: "/assets/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+    shortcut: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({
@@ -34,36 +53,23 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${outfit.variable} h-full antialiased`}>
-      <body className="relative min-h-full flex flex-col bg-base-light text-text-primary">
-        <NatureCanvas />
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${inter.variable} ${outfit.variable} h-full antialiased`}
+    >
+      <body suppressHydrationWarning className="relative min-h-full flex flex-col bg-base-light text-text-primary">
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+        <FaviconSwitcher />
+        <Suspense fallback={null}>
+          <DynamicNatureCanvas />
+          <GlowCursorLayer />
+        </Suspense>
 
-        <NextAuthProvider>
-          <SiteHeader />
-          <main className="flex-grow flex flex-col">{children}</main>
-        </NextAuthProvider>
-
-        <footer className="bg-[color:var(--theme-component-backdrop)] border-t border-white/5 py-8 px-4 mt-auto">
-          <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="text-center md:text-left">
-              <p className="text-[11px] uppercase tracking-[0.3em] text-[color:var(--theme-typography-secondary)] font-black">
-                TANGLAW RESEARCH PROJECT © 2026
-              </p>
-              <p className="text-[10px] text-[color:var(--theme-typography-secondary)] mt-1">
-                Science, Technology, and Society (BSCS 1-2)
-              </p>
-            </div>
-            <div className="flex flex-wrap justify-center gap-4 text-[10px] text-[color:var(--theme-typography-secondary)] uppercase tracking-[0.28em] font-semibold">
-              <Link href="/about" className="hover:text-[color:var(--theme-typography-main)]">
-                The Minds Behind Us
-              </Link>
-              <span className="text-white/20">|</span>
-              <a href="https://pup.edu.ph" target="_blank" rel="noopener noreferrer" className="hover:text-[color:var(--theme-typography-main)]">
-                PUP Manila
-              </a>
-            </div>
-          </div>
-        </footer>
+        <SiteHeader />
+        <main className="flex-grow flex flex-col">{children}</main>
+        <SiteFooter />
+        </ThemeProvider>
       </body>
     </html>
   );

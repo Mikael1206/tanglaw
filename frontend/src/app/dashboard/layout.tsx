@@ -9,10 +9,22 @@ import Link from "next/link";
 import { LogOut, Sparkles, Menu, X } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { AnimatePresence, motion } from "framer-motion";
+import dynamic from "next/dynamic";
 import AuthGuard from "@/components/AuthGuard";
+import NextAuthProvider from "@/components/NextAuthProvider";
 import ThemeChanger from "@/components/theme-changer";
-import OwelChatbot from "@/components/owel-chatbot";
+import { setAuthToken } from "@/lib/auth-storage";
+
+const EtheralShadow = dynamic(
+  () => import("../../../components/ui/etheral-shadow").then((mod) => mod.EtheralShadow),
+  { ssr: false }
+);
+const OwelChatbot = dynamic(() => import("@/components/owel-chatbot"), {
+  ssr: false,
+  loading: () => (
+    <div className="fixed bottom-6 right-6 z-40 h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-primary/20 animate-pulse" />
+  ),
+});
 
 export default function DashboardLayout({
   children,
@@ -22,7 +34,43 @@ export default function DashboardLayout({
   const router = useRouter();
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolledAway, setScrolledAway] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const [atTop, setAtTop] = useState(true);
   const menuRef = useRef<HTMLDivElement>(null);
+  const lastScrollY = useRef(0);
+
+  const isVisible = hovered || atTop || !scrolledAway;
+
+  // Auto-hide on scroll down, show on scroll up
+  useEffect(() => {
+    let rafId: number;
+    let pendingAtTop = true;
+    let pendingScrolledAway = false;
+
+    const handleScroll = () => {
+      const currentY = window.scrollY;
+      pendingAtTop = currentY < 30;
+      if (currentY > 60 && currentY > lastScrollY.current) {
+        pendingScrolledAway = true;
+      } else if (currentY < lastScrollY.current) {
+        if (currentY < 30) pendingScrolledAway = false;
+      }
+      lastScrollY.current = currentY;
+
+      // Throttle state updates to once per frame
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        setAtTop(pendingAtTop);
+        setScrolledAway(pendingScrolledAway);
+      });
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      cancelAnimationFrame(rafId);
+    };
+  }, []);
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -42,6 +90,8 @@ export default function DashboardLayout({
   }, [menuOpen]);
 
   const handleSignOut = async () => {
+    setAuthToken(null);
+    window.dispatchEvent(new Event("tanglaw-auth-change"));
     try {
       await signOut({ redirect: false });
     } catch (error) {
@@ -51,128 +101,181 @@ export default function DashboardLayout({
   };
 
   return (
+    <NextAuthProvider>
     <AuthGuard>
-      <div className="min-h-screen bg-base-light text-text-primary">
-        <header className="relative z-50 border-b border-accent-muted/40 bg-white">
-          <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 px-4 py-4">
-            <div className="flex items-center gap-4">
-              <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-black uppercase tracking-[0.24em] text-zinc-900">
-                <Sparkles className="h-5 w-5 text-primary" />
-                DASHBOARD
-              </Link>
-              <nav className="hidden sm:flex flex-wrap gap-3 text-[11px] uppercase font-bold tracking-widest text-zinc-600">
-                <Link href="/dashboard" className="hover:text-zinc-900 transition-colors">Overview</Link>
-                <Link href="/dashboard/scholarships" className="hover:text-zinc-900 transition-colors">Scholarships</Link>
-                <Link href="/dashboard/readiness" className="hover:text-zinc-900 transition-colors">Readiness</Link>
-                <Link href="/dashboard/reviewer" className="hover:text-zinc-900 transition-colors">Exam Reviewer</Link>
-              </nav>
-            </div>
+      <div className="h-screen overflow-y-auto hide-scrollbar bg-base-light text-text-primary flex flex-col">
+          <EtheralShadow
+            animation={{ scale: 60, speed: 80 }}
+            noise={{ opacity: 0.8, scale: 1.0 }}
+            sizing="cover"
+            lightColor="rgba(200, 230, 175, 0.85)"
+          />
 
-            <div className="flex items-center gap-3" ref={menuRef}>
-              {/* Mobile hamburger */}
-              <button
-                onClick={() => setMenuOpen(!menuOpen)}
-                className="sm:hidden flex items-center justify-center h-10 w-10 rounded-full border border-accent-muted/40 bg-white hover:bg-zinc-50 transition"
-                aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
-                aria-expanded={menuOpen}
-              >
+        {/* Invisible trigger zone — reveals navbar on hover when hidden */}
+        {!isVisible && (
+          <div
+            className="fixed top-0 left-0 right-0 z-[60] h-20"
+            onMouseEnter={() => setHovered(true)}
+            aria-hidden="true"
+          />
+        )}
+
+        <header
+          className={`relative z-50 flex items-start justify-center px-4 pt-4 sm:px-6 sm:pt-5 transition-all duration-400 ease-out ${
+            isVisible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4 pointer-events-none"
+          }`}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+        >
+          {/* Mobile layout: logo left, hamburger right */}
+          <div className="md:hidden flex items-center justify-between w-full">
+            <Link href="/dashboard" className="flex items-center gap-2" aria-label="Go to dashboard">
+              <div className="h-9 w-9 rounded-full border border-white/10 bg-[color:var(--theme-surface)] shadow-lg shadow-black/20 flex items-center justify-center">
+                <Sparkles className="h-4 w-4 text-primary" />
+              </div>
+              <span className="font-display text-xl font-black uppercase tracking-[0.12em] text-[color:var(--theme-typography-main)]">
+                Dashboard
+              </span>
+            </Link>
+
+            <div className="flex items-center gap-2">
+              <ThemeChanger />
+
+              <div ref={menuRef}>
+                <button
+                  onClick={() => setMenuOpen(!menuOpen)}
+                  className="flex items-center justify-center h-10 w-10 rounded-full border border-white/10 bg-[color:var(--theme-surface)]/60 backdrop-blur-xl shadow-lg transition-all duration-300 hover:bg-[color:var(--theme-surface)]/80"
+                  aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
+                  aria-expanded={menuOpen}
+                >
                 {menuOpen ? (
-                  <X className="h-5 w-5 text-zinc-700" />
+                  <X className="h-5 w-5 text-[color:var(--theme-typography-main)]" />
                 ) : (
-                  <Menu className="h-5 w-5 text-zinc-700" />
+                  <Menu className="h-5 w-5 text-[color:var(--theme-typography-main)]" />
                 )}
               </button>
 
-              {/* Mobile backdrop + dropdown panel */}
-              <AnimatePresence>
-                {menuOpen && (
-                  <>
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="fixed inset-0 z-40 sm:hidden bg-black/35"
-                      onClick={() => setMenuOpen(false)}
-                      aria-hidden="true"
-                    />
-                    <motion.div
-                      initial={{ opacity: 0, y: -12, scale: 0.97 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -12, scale: 0.97 }}
-                      transition={{ duration: 0.22, ease: "easeOut" }}
-                      className="absolute top-full left-0 right-0 z-50 sm:hidden border-b border-accent-muted/40 bg-white shadow-2xl shadow-black/15 origin-top"
-                    >
-                    <nav className="max-w-7xl mx-auto px-4 py-5 flex flex-col gap-3 text-[11px] uppercase font-bold tracking-widest text-zinc-600">
-                      <Link
-                        href="/dashboard"
-                        className={`transition px-4 py-3 rounded-full ${
-                          pathname === "/dashboard"
-                            ? "bg-primary/10 text-primary font-black"
-                            : "hover:bg-zinc-50 hover:text-zinc-900"
-                        }`}
-                      >
-                        Overview
-                      </Link>
-                      <Link
-                        href="/dashboard/scholarships"
-                        className={`transition px-4 py-3 rounded-full ${
-                          pathname === "/dashboard/scholarships"
-                            ? "bg-primary/10 text-primary font-black"
-                            : "hover:bg-zinc-50 hover:text-zinc-900"
-                        }`}
-                      >
-                        Scholarships
-                      </Link>
-                      <Link
-                        href="/dashboard/readiness"
-                        className={`transition px-4 py-3 rounded-full ${
-                          pathname === "/dashboard/readiness"
-                            ? "bg-primary/10 text-primary font-black"
-                            : "hover:bg-zinc-50 hover:text-zinc-900"
-                        }`}
-                      >
-                        Readiness
-                      </Link>
-                      <Link
-                        href="/dashboard/reviewer"
-                        className={`transition px-4 py-3 rounded-full ${
-                          pathname === "/dashboard/reviewer"
-                            ? "bg-primary/10 text-primary font-black"
-                            : "hover:bg-zinc-50 hover:text-zinc-900"
-                        }`}
-                      >
-                        Exam Reviewer
-                      </Link>
-                      <hr className="border-accent-muted/30 my-1" />
+              {menuOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40 bg-black/35 transition-opacity duration-150"
+                    style={{ top: "100%" }}
+                    onClick={() => setMenuOpen(false)}
+                    aria-hidden="true"
+                  />
+                  <div className="absolute top-12 right-0 z-50 w-52 overflow-hidden rounded-2xl border border-white/10 bg-[color:var(--theme-surface)]/80 backdrop-blur-xl shadow-2xl shadow-black/30 origin-top transition-all duration-150">
+                    <nav className="flex flex-col gap-1 p-3 text-[11px] uppercase tracking-[0.18em] font-semibold">
+                      {[
+                        { href: "/dashboard", label: "Overview" },
+                        { href: "/dashboard/scholarships", label: "Scholarships" },
+                        { href: "/dashboard/readiness", label: "Readiness" },
+                      ].map(({ href, label }) => (
+                        <Link
+                          key={href}
+                          href={href}
+                          className={`rounded-full px-4 py-2.5 transition-all duration-300 ${
+                            pathname === href
+                              ? "bg-primary/15 text-primary"
+                              : "text-[color:var(--theme-typography-secondary)] hover:bg-white/5 hover:text-[color:var(--theme-typography-main)]"
+                          }`}
+                        >
+                          {label}
+                        </Link>
+                      ))}
+                      <div className="my-1 h-px bg-white/10" />
                       <button
                         onClick={handleSignOut}
-                        className="flex items-center justify-center gap-2 rounded-full bg-primary text-white px-4 py-3 text-xs font-bold uppercase tracking-widest transition hover:bg-primary-hover"
+                        className="flex items-center justify-center gap-2 rounded-full bg-primary/90 px-4 py-2.5 text-white transition-all duration-300 hover:bg-primary"
                       >
                         <LogOut className="h-4 w-4" />
                         Sign Out
                       </button>
                     </nav>
-                  </motion.div>
-                  </>
-                )}
-              </AnimatePresence>
+                  </div>
+                </>
+              )}
+            </div>
+            </div>
+          </div>
+
+          {/* Desktop layout: logo inside pill nav */}
+          <div className="hidden md:flex w-full max-w-4xl items-center justify-center">
+            <nav className="flex items-center gap-1 rounded-full border border-white/10 bg-[color:var(--theme-surface)]/60 px-3 py-2.5 shadow-[0_4px_30px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-xl sm:gap-2 sm:px-5">
+              <Link href="/dashboard" className="flex items-center gap-2 mr-1" aria-label="Go to dashboard">
+                <div className="h-8 w-8 rounded-full border border-white/10 bg-[color:var(--theme-surface)] shadow-lg shadow-black/20 flex items-center justify-center">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                </div>
+                <span className="font-display text-lg font-black uppercase tracking-[0.12em] text-[color:var(--theme-typography-main)]">
+                  Dashboard
+                </span>
+              </Link>
+
+              <div className="mx-1 h-4 w-px bg-white/10 sm:mx-2" />
+
+              {[
+                { href: "/dashboard", label: "Overview" },
+                { href: "/dashboard/scholarships", label: "Scholarships" },
+                { href: "/dashboard/readiness", label: "Readiness" },
+              ].map(({ href, label }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className={`group relative rounded-full px-3.5 py-1.5 text-[10px] font-semibold tracking-[0.18em] uppercase transition-all duration-300 sm:px-4 ${
+                    pathname === href
+                      ? "bg-primary/15 text-primary"
+                      : "text-[color:var(--theme-typography-secondary)] hover:bg-white/5 hover:text-[color:var(--theme-typography-main)]"
+                  }`}
+                >
+                  {label}
+                  <span
+                    className={`absolute -bottom-0.5 left-1/2 h-px -translate-x-1/2 rounded-full bg-primary/40 transition-all duration-300 ${
+                      pathname === href ? "w-3/5 opacity-100" : "w-0 opacity-0 group-hover:w-2/5 group-hover:opacity-60"
+                    }`}
+                  />
+                </Link>
+              ))}
+
+              <div className="mx-1 h-4 w-px bg-white/10 sm:mx-2" />
 
               <ThemeChanger />
+
               <button
                 onClick={handleSignOut}
-                className="hidden sm:inline-flex items-center gap-2 rounded-full bg-primary text-white px-4 py-2 text-xs font-bold uppercase tracking-widest shadow-lg hover:bg-primary-hover transition-colors"
+                className="rounded-full px-3 py-1.5 text-[10px] font-semibold tracking-[0.18em] uppercase text-[color:var(--theme-typography-secondary)] transition-all duration-300 hover:bg-white/5 hover:text-[color:var(--theme-typography-main)] sm:px-4"
               >
-                <LogOut className="h-4 w-4" />
-                Sign Out
+                Logout
               </button>
-            </div>
+            </nav>
           </div>
         </header>
 
-        <main className="max-w-7xl mx-auto px-4 py-8"> {children} </main>
-        <OwelChatbot />
+        <main className="relative z-20 max-w-7xl mx-auto px-4 sm:px-6 py-6 lg:py-8 w-full flex-1"> {children} </main>
+        {/* Floating chatbot: hidden on /dashboard (has its own CTA + modal), visible on other pages */}
+        {pathname !== "/dashboard" && <OwelChatbot />}
+
+        <footer className="relative z-10 bg-[color:var(--theme-component-backdrop)] border-t border-white/5 py-6 px-4">
+          <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-3">
+            <div className="text-center md:text-left">
+              <p className="text-[11px] uppercase tracking-[0.3em] text-[color:var(--theme-typography-secondary)] font-black">
+                TANGLAW RESEARCH PROJECT © 2026
+              </p>
+              <p className="text-[10px] text-[color:var(--theme-typography-secondary)] mt-1">
+                Science, Technology, and Society (BSCS 1-2)
+              </p>
+            </div>
+            <div className="flex flex-wrap justify-center gap-4 text-[10px] text-[color:var(--theme-typography-secondary)] uppercase tracking-[0.28em] font-semibold">
+              <Link href="/about" className="hover:text-[color:var(--theme-typography-main)]">
+                The Minds Behind Us
+              </Link>
+              <span className="text-white/20">|</span>
+              <a href="https://pup.edu.ph" target="_blank" rel="noopener noreferrer" className="hover:text-[color:var(--theme-typography-main)]">
+                PUP Manila
+              </a>
+            </div>
+          </div>
+        </footer>
       </div>
     </AuthGuard>
+    </NextAuthProvider>
   );
 }

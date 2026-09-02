@@ -4,118 +4,215 @@
  * Scholarship discovery component used in the authenticated dashboard.
  * Supports keyword search, program filtering, income constraints, and scholarship listings.
  */
-import React, { useEffect, useState, useMemo } from "react";
-import { Search, SlidersHorizontal, ExternalLink, Filter, GraduationCap, DollarSign, Building2, BookOpen, AlertCircle, RefreshCw, ChevronDown, ChevronUp, ArrowUp } from "lucide-react";
-import { fetchScholarships } from "@/lib/backend";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
+import { Filter, ArrowUp } from "lucide-react";
+import ScholarshipFilterPanel from "./scholarship-filter-panel";
+import ScholarshipCard from "./scholarship-card";
+import ScholarshipPagination from "./scholarship-pagination";
+import { OSFA_SCHOLARSHIPS, type ScholarshipOpportunity } from "@/data/scholarships-data";
+import { fetchScholarships as fetchBackendScholarships } from "@/lib/backend";
+import type { BackendScholarship } from "@/lib/backend";
 
-interface Scholarship {
-  id: string;
-  name: string;
-  provider: string;
-  type: "Public" | "Private";
-  incomeBracket: number; // Max annual family income (0 means any)
-  program: string;
-  benefits: string[];
-  requirements: string[];
-  link: string;
+// Module-scoped cache — prevents re-fetching on re-renders
+let cachedScholarships: ScholarshipOpportunity[] | null = null;
+
+function inferStrand(programs: string[]): string {
+  if (programs.length === 0 || (programs.length === 1 && programs[0].toLowerCase() === "any")) return "Any";
+  const joined = programs.join(" ").toLowerCase();
+
+  if (programs.some((p) => /all strand|all programs|all ched|open to all|any/i.test(p))) return "All Strand";
+  if (
+    joined.includes("computer") || joined.includes("engineering") || joined.includes("science") ||
+    joined.includes("math") || joined.includes("technology") || joined.includes("it ") ||
+    joined.includes("architecture") || joined.includes("statistics") || joined.includes("physics") ||
+    joined.includes("chemistry") || joined.includes("biology")
+  ) return "STEM";
+  if (
+    joined.includes("journalism") || joined.includes("education") || joined.includes("communication") ||
+    joined.includes("arts") || joined.includes("history") || joined.includes("philosophy") ||
+    joined.includes("literature") || joined.includes("broadcasting") || joined.includes("social work")
+  ) return "Humanities";
+  if (
+    joined.includes("nursing") || joined.includes("medical") || joined.includes("health") ||
+    joined.includes("pharmacy") || joined.includes("radiology") || joined.includes("therapy") ||
+    joined.includes("medtech")
+  ) return "Medical Allied";
+  if (
+    joined.includes("tourism") || joined.includes("hospitality") || joined.includes("hotel")
+  ) return "Tourism & Hospitality";
+  if (
+    joined.includes("accountancy") || joined.includes("accounting") || joined.includes("business") ||
+    joined.includes("management") || joined.includes("finance")
+  ) return "Business & Accountancy";
+
+  return programs[0];
 }
 
-// ── sessionStorage cache ─────────────────────────────────────────────────────
-const CACHE_KEY = "tanglaw-scholarships-v1";
-const CACHE_AGE_MS = 5 * 60 * 1000; // 5 minutes
+function mapBackendScholarshipToOpportunity(item: BackendScholarship): ScholarshipOpportunity {
+  const requirements = Array.isArray(item.requirements) ? item.requirements : [];
+  const benefits = Array.isArray(item.benefits) ? item.benefits : [];
+  const priorityPrograms = item.programCategories?.length ? item.programCategories : ["Open to all programs"];
 
-interface CacheEntry {
-  data: Scholarship[];
-  timestamp: number;
+  return {
+    name: item.name,
+    provider: item.provider,
+    coverageType: benefits[0] ?? "Scholarship support",
+    classification: item.type,
+    strand: inferStrand(item.programCategories),
+    overview: (() => {
+      const programSummary = item.programCategories?.length
+        ? item.programCategories.length <= 3
+          ? item.programCategories.join(", ")
+          : `${item.programCategories.slice(0, 3).join(", ")} and ${item.programCategories.length - 3} more`
+        : "qualified students";
+      return `${item.provider} offers ${item.name}. This scholarship is designed for ${programSummary} and provides ${benefits[0]?.toLowerCase() || "education support"}.`;
+    })(),
+    coverageDetails: benefits.join(" • ") || "Financial assistance and related learning support.",
+    eligibility: {
+      financialStatus: item.incomeBracket > 0
+        ? `Annual household income must not exceed ₱${item.incomeBracket.toLocaleString()}`
+        : "No strict income cap listed.",
+      minimumGPA: item.minGwa > 1.3
+        ? (item.minGwa >= 75 ? `${item.minGwa}%` : `${item.minGwa.toFixed(2)}`)
+        : undefined,
+      // academicStatus removed — priorityPrograms already lists all eligible programs accurately
+    },
+    priorityPrograms,
+    requirements,
+    examInformation: { type: "Application Review" },
+    deadline: "Subject to provider deadline",
+    links: item.link ? [item.link] : [],
+  };
 }
 
-function getCachedScholarships(): Scholarship[] | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = sessionStorage.getItem(CACHE_KEY);
-    if (!raw) return null;
-    const entry: CacheEntry = JSON.parse(raw);
-    if (Date.now() - entry.timestamp > CACHE_AGE_MS) {
-      sessionStorage.removeItem(CACHE_KEY);
-      return null;
+// Merge backend DB results with hardcoded OSFA scholarships.
+// Backend entries take priority; static OSFA entries fill any gaps.
+function mergeWithOsfa(backend: ScholarshipOpportunity[]): ScholarshipOpportunity[] {
+  const map = new Map<string, ScholarshipOpportunity>();
+  for (const item of backend) {
+    map.set(item.name, item);
+  }
+  for (const item of OSFA_SCHOLARSHIPS) {
+    if (!map.has(item.name)) {
+      map.set(item.name, item);
     }
-    return entry.data;
-  } catch {
-    return null;
   }
+  return Array.from(map.values());
 }
 
-function setCachedScholarships(data: Scholarship[]) {
-  if (typeof window === "undefined") return;
-  try {
-    const entry: CacheEntry = { data, timestamp: Date.now() };
-    sessionStorage.setItem(CACHE_KEY, JSON.stringify(entry));
-  } catch {
-    // sessionStorage full or unavailable — ignore
-  }
+async function loadScholarships(): Promise<ScholarshipOpportunity[]> {
+  if (cachedScholarships) return cachedScholarships;
+
+  const backendData = await fetchBackendScholarships();
+  const merged = mergeWithOsfa(backendData.map(mapBackendScholarshipToOpportunity));
+  cachedScholarships = merged;
+  return cachedScholarships;
 }
 
-// ── Skeleton card for loading state ──────────────────────────────────────────
-function ScholarshipSkeleton() {
-  return (
-    <div className="bg-[color:var(--theme-surface)]/80 border-2 border-accent-muted/40 rounded-2xl p-6 animate-pulse">
-      <div className="flex gap-1.5 mb-3.5">
-        <div className="h-4 w-16 bg-[color:var(--theme-borders-system)]/35 rounded-full" />
-        <div className="h-4 w-24 bg-[color:var(--theme-borders-system)]/35 rounded-full" />
-      </div>
-      <div className="h-5 w-3/4 bg-[color:var(--theme-borders-system)]/35 rounded mb-2" />
-      <div className="h-3 w-1/2 bg-[color:var(--theme-borders-system)]/22 rounded mb-4" />
-      <div className="space-y-1.5 mb-4">
-        <div className="h-3 w-1/3 bg-[color:var(--theme-borders-system)]/22 rounded" />
-        <div className="h-3 w-full bg-[color:var(--theme-borders-system)]/22 rounded" />
-        <div className="h-3 w-5/6 bg-[color:var(--theme-borders-system)]/22 rounded" />
-      </div>
-      <div className="h-10 w-full bg-[color:var(--theme-borders-system)]/35 rounded-xl" />
-    </div>
-  );
+// Helper to extract numeric limit from financial text to support income filtering
+function getNumericIncomeLimit(statusText?: string): number {
+  if (!statusText) return 0;
+  const cleanText = statusText.toLowerCase();
+
+  // Look for monthly values first
+  if (cleanText.includes("30,000 monthly") || cleanText.includes("30,000/month")) return 360000;
+
+  // Annual values
+  if (cleanText.includes("400,000") || cleanText.includes("400.000")) return 400000;
+  if (cleanText.includes("350,000")) return 350000;
+  if (cleanText.includes("300,000") || cleanText.includes("300.000")) return 300000;
+  if (cleanText.includes("250,000")) return 250000;
+  if (cleanText.includes("180,000")) return 180000;
+
+  // Other currencies / special thresholds
+  if (cleanText.includes("usd $1000") || cleanText.includes("usd $1,000")) return 700000;
+
+  return 0;
+}
+
+// Helper to filter by academic stream
+function matchesAcademicStream(opportunity: ScholarshipOpportunity, filterValue: string): boolean {
+  if (filterValue === "all") return true;
+
+  const programs = opportunity.priorityPrograms.map(p => p.toLowerCase());
+  const strand = opportunity.strand.toLowerCase();
+
+  // General fallback matches
+  if (
+    programs.some(p => p.includes("open to all") || p.includes("all programs") || p.includes("all CHED recognized") || p.includes("tba")) ||
+    strand.includes("all strand") ||
+    strand.includes("tba")
+  ) {
+    return true;
+  }
+
+  if (filterValue === "stem") {
+    return programs.some(p =>
+      p.includes("computer") || p.includes("information technology") || p.includes("it") ||
+      p.includes("engineering") || p.includes("science") || p.includes("math") ||
+      p.includes("architecture") || p.includes("design") || p.includes("technology") || p.includes("stem")
+    ) || strand.includes("stem") || strand.includes("bscs") || strand.includes("bsce") || strand.includes("engineering") || strand.includes("bsarch");
+  }
+
+  if (filterValue === "humanities") {
+    return programs.some(p =>
+      p.includes("journalism") || p.includes("education") || p.includes("broadcasting") ||
+      p.includes("advertising") || p.includes("communication") || p.includes("arts") || p.includes("social work")
+    ) || strand.includes("communication") || strand.includes("education");
+  }
+
+  if (filterValue === "medical-allied") {
+    return programs.some(p =>
+      p.includes("health") || p.includes("therapy") || p.includes("medical") || p.includes("radiology")
+    );
+  }
+
+  return false;
 }
 
 export default function ScholarshipBrowser() {
-  const [scholarships, setScholarships] = useState<Scholarship[]>(() => getCachedScholarships() ?? []);
-  const [loadingScholarships, setLoadingScholarships] = useState(() => getCachedScholarships() === null);
-  const [scholarshipError, setScholarshipError] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Skip fetch if we already have cached data
-    if (!loadingScholarships) return;
-
-    let active = true;
-
-    async function loadScholarships() {
-      try {
-        const backendScholarships = await fetchScholarships();
-        if (!active) return;
-        setScholarships(backendScholarships);
-        setCachedScholarships(backendScholarships);
-      } catch (error) {
-        console.error("Failed to load scholarships from backend:", error);
-        if (active) {
-          setScholarshipError(error instanceof Error ? error.message : String(error));
-        }
-      } finally {
-        if (active) {
-          setLoadingScholarships(false);
-        }
-      }
-    }
-
-    loadScholarships();
-    return () => {
-      active = false;
-    };
-  }, [loadingScholarships]);
-
+  const [scholarships, setScholarships] = useState<ScholarshipOpportunity[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [incomeLimit, setIncomeLimit] = useState<string>("all");
   const [scholarshipType, setScholarshipType] = useState<string>("all");
   const [programType, setProgramType] = useState<string>("all");
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 4;
+
+  // Tracks which card is expanded (accordion state)
+  const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
+
+  // Lazy-load scholarship data on mount
+  useEffect(() => {
+    let cancelled = false;
+    loadScholarships()
+      .then(data => {
+        if (!cancelled) {
+          setScholarships(data);
+          setLoadError(null);
+          setIsLoading(false);
+        }
+      })
+      .catch(err => {
+        if (!cancelled) {
+          const message = err instanceof Error ? err.message : String(err);
+          console.error("[ScholarshipBrowser] Failed to load scholarships:", message);
+          setLoadError(
+            err instanceof TypeError
+              ? "We couldn't connect to the server. It may be waking up from sleep — please try again in a moment."
+              : `We couldn't load scholarships: ${message}`
+          );
+          setIsLoading(false);
+        }
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   // Track scroll position for "back to top" FAB on mobile
   useEffect(() => {
@@ -126,35 +223,75 @@ export default function ScholarshipBrowser() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Debounced search term to avoid filtering on every keystroke
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearchTerm(searchTerm), 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchTerm(value);
+    setCurrentPage(1);
+  }, []);
+
+  const handleIncomeChange = useCallback((value: string) => {
+    setIncomeLimit(value);
+    setCurrentPage(1);
+  }, []);
+
+  const handleTypeChange = useCallback((value: string) => {
+    setScholarshipType(value);
+    setCurrentPage(1);
+  }, []);
+
+  const handleProgramChange = useCallback((value: string) => {
+    setProgramType(value);
+    setCurrentPage(1);
+  }, []);
+
   const filteredScholarships = useMemo(() => {
     return scholarships.filter((item) => {
-      // 1. Text Search
+      // 1. Text Search (using debounced term)
       const matchesSearch =
-        item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.provider.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.benefits.some((b) => b.toLowerCase().includes(searchTerm.toLowerCase()));
+        item.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+        item.provider.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+        item.overview.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+        item.priorityPrograms.some((p) => p.toLowerCase().includes(debouncedSearchTerm.toLowerCase()));
 
       // 2. Income Bracket filter
       let matchesIncome = true;
       if (incomeLimit !== "all") {
         const limitNum = parseInt(incomeLimit, 10);
-        // If scholarship is any income (0), or its income bracket limit is >= user choice
-        matchesIncome = item.incomeBracket === 0 || item.incomeBracket <= limitNum;
+        const parsedLimit = getNumericIncomeLimit(item.eligibility.financialStatus);
+        // Match if no limit (0) or if the parsed limit is within selected bound
+        matchesIncome = parsedLimit === 0 || parsedLimit <= limitNum;
       }
 
-      // 3. Scholarship Type (Public/Private)
-      const matchesType =
-        scholarshipType === "all" || item.type.toLowerCase() === scholarshipType.toLowerCase();
+      // 3. Scholarship Type (Public/Private mapping)
+      let matchesType = true;
+      if (scholarshipType !== "all") {
+        const isPrivate = item.classification.toLowerCase().includes("private");
+        if (scholarshipType === "private") {
+          matchesType = isPrivate;
+        } else if (scholarshipType === "public") {
+          matchesType = !isPrivate;
+        }
+      }
 
-      // 4. Program Type
-      const matchesProgram =
-        programType === "all" ||
-        item.program === "Any" ||
-        item.program.toLowerCase() === programType.toLowerCase();
+      // 4. Program Type (Academic Stream map)
+      const matchesProgram = matchesAcademicStream(item, programType);
 
       return matchesSearch && matchesIncome && matchesType && matchesProgram;
     });
-  }, [searchTerm, incomeLimit, scholarshipType, programType, scholarships]);
+  }, [debouncedSearchTerm, incomeLimit, scholarshipType, programType, scholarships]);
+
+  // Pagination: slice the filtered list to the current page
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentScholarships = filteredScholarships.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredScholarships.length / itemsPerPage);
 
   const handleResetFilters = () => {
     setSearchTerm("");
@@ -167,284 +304,120 @@ export default function ScholarshipBrowser() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleRetry = () => {
-    setScholarshipError(null);
-    setLoadingScholarships(true);
-  };
+  const toggleCard = useCallback((name: string) => {
+    setExpandedCards(prev => ({
+      ...prev,
+      [name]: !prev[name]
+    }));
+  }, []);
 
   return (
-    <div className="flex flex-col lg:flex-row gap-8 w-full max-w-7xl mx-auto px-4 py-8 animate-fade-in font-sans">
+    <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 w-full max-w-7xl mx-auto px-4 sm:px-6 py-6 lg:py-8 animate-fade-in font-sans overflow-x-hidden">
       {/* Sidebar Panel for Filters */}
-      <aside className="w-full lg:w-80 flex-shrink-0 bg-[color:var(--theme-surface)]/80 rounded-2xl p-4 sm:p-6 border-2 border-accent-muted shadow-lg h-fit lg:sticky lg:top-24">
-        {/* Mobile filter toggle button */}
-        <button
-          onClick={() => setShowMobileFilters((prev) => !prev)}
-          className="lg:hidden flex items-center justify-between w-full mb-4 pb-3 border-b border-accent-muted/40 text-text-primary"
-        >
-          <div className="flex items-center gap-2">
-            <SlidersHorizontal className="h-5 w-5" />
-            <h2 className="font-bold text-lg">Filter Controls</h2>
-          </div>
-          {showMobileFilters ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-        </button>
-
-        {/* Desktop header */}
-        <div className="hidden lg:flex items-center justify-between mb-6 pb-4 border-b border-accent-muted/40">
-          <div className="flex items-center gap-2 text-text-primary">
-            <SlidersHorizontal className="h-5 w-5" />
-            <h2 className="font-bold text-lg">Filter Controls</h2>
-          </div>
-          <button
-            onClick={handleResetFilters}
-            className="text-xs font-semibold text-[color:var(--theme-text-body)] hover:text-[color:var(--theme-typography-main)] transition-colors cursor-pointer hover:underline"
-          >
-            Clear All
-          </button>
-        </div>
-
-        {/* Filter body — collapsible on mobile, always visible on desktop */}
-        <div className={`space-y-6 ${showMobileFilters ? "block" : "hidden lg:block"}`}>
-          {/* Search Input */}
-          <div className="space-y-2">
-            <label className="text-sm font-bold text-text-primary flex items-center gap-1.5">
-              <Search className="h-4 w-4" /> Keyword Search
-            </label>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search DOST, CHED, benefits..."
-              className="w-full bg-[color:var(--theme-surface)] border border-accent-periwinkle rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-accent-muted text-text-primary placeholder-zinc-400"
-            />
-          </div>
-
-          {/* Income Bracket */}
-          <div className="space-y-2">
-            <label className="text-sm font-bold text-text-primary flex items-center gap-1.5">
-              <DollarSign className="h-4 w-4" /> Max Family Income
-            </label>
-            <select
-              value={incomeLimit}
-              onChange={(e) => setIncomeLimit(e.target.value)}
-              className="w-full bg-[color:var(--theme-surface)] border border-accent-periwinkle rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-accent-muted text-text-primary"
-            >
-              <option value="all">Any Income Bracket</option>
-              <option value="400000">₱400,000 or below</option>
-              <option value="300000">₱300,000 or below</option>
-              <option value="250000">₱250,000 or below</option>
-              <option value="200000">₱200,000 or below</option>
-            </select>
-          </div>
-
-          {/* Public vs Private */}
-          <div className="space-y-2.5">
-            <label className="text-sm font-bold text-text-primary flex items-center gap-1.5">
-              <Building2 className="h-4 w-4" /> Scholarship Sponsoring
-            </label>
-            <div className="grid grid-cols-3 gap-1 bg-[color:var(--theme-surface)] p-1 rounded-xl border border-accent-periwinkle">
-              {["all", "public", "private"].map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setScholarshipType(t)}
-                  className={`py-1.5 rounded-lg text-xs font-bold capitalize transition-all cursor-pointer ${
-                    scholarshipType === t
-                      ? "bg-primary text-white shadow-sm"
-                      : "text-[color:var(--theme-text-muted)] hover:text-[color:var(--theme-text-body)]"
-                  }`}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Program Type */}
-          <div className="space-y-2.5">
-            <label className="text-sm font-bold text-text-primary flex items-center gap-1.5">
-              <BookOpen className="h-4 w-4" /> Academic Stream
-            </label>
-            <div className="flex flex-col gap-2">
-              {[
-                { value: "all", label: "All Programs / Any" },
-                { value: "stem", label: "STEM Courses" },
-                { value: "humanities", label: "Humanities / Arts" },
-                { value: "medical-allied", label: "Medical-Allied" }
-              ].map((p) => (
-                <label
-                  key={p.value}
-                  className={`flex items-center gap-2.5 p-2.5 rounded-xl border transition-all cursor-pointer text-xs font-bold ${
-                    programType === p.value
-                      ? "bg-primary/20 border-primary text-text-primary"
-                      : "bg-[color:var(--theme-surface)] border-accent-periwinkle/60 text-[color:var(--theme-text-body)] hover:border-accent-periwinkle"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="program"
-                    value={p.value}
-                    checked={programType === p.value}
-                    onChange={() => setProgramType(p.value)}
-                    className="accent-primary h-4 w-4 cursor-pointer"
-                  />
-                  {p.label}
-                </label>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile clear button */}
-        <div className={`mt-4 lg:hidden ${showMobileFilters ? "block" : "hidden"}`}>
-          <button
-            onClick={handleResetFilters}
-            className="w-full text-xs font-semibold text-[color:var(--theme-text-body)] hover:text-[color:var(--theme-typography-main)] transition-colors cursor-pointer hover:underline py-2"
-          >
-            Clear All Filters
-          </button>
-        </div>
-      </aside>
+      <ScholarshipFilterPanel
+        searchTerm={searchTerm}
+        onSearchChange={handleSearchChange}
+        incomeLimit={incomeLimit}
+        onIncomeChange={handleIncomeChange}
+        scholarshipType={scholarshipType}
+        onTypeChange={handleTypeChange}
+        programType={programType}
+        onProgramChange={handleProgramChange}
+        showMobileFilters={showMobileFilters}
+        onToggleMobile={() => setShowMobileFilters((prev) => !prev)}
+        onReset={handleResetFilters}
+      />
 
       {/* Main Display Grid */}
       <main className="flex-1 space-y-6">
         {/* Statistics Bar */}
-        <div className="flex flex-col sm:flex-row justify-between items-center bg-[color:var(--theme-surface)] border border-accent-periwinkle rounded-2xl px-6 py-4 shadow-sm gap-3">
-          <div className="text-sm font-semibold text-[color:var(--theme-text-body)]">
-            {loadingScholarships ? (
-              "Loading scholarships..."
-            ) : scholarshipError ? (
-              <span className="text-red-600">Failed to load — server may be starting up</span>
-            ) : (
-              <>
-                Showing <span className="text-text-primary font-bold">{filteredScholarships.length}</span> matching scholarships
-              </>
-            )}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-[color:var(--theme-surface)] border border-accent-periwinkle rounded-[2rem] px-4 sm:px-6 py-4 shadow-sm gap-3">
+          <div className="text-xs sm:text-sm font-semibold text-[color:var(--theme-text-body)] break-words max-w-full">
+            Showing <span className="text-text-primary font-bold">{isLoading ? "..." : filteredScholarships.length}</span> matching opportunities
           </div>
-          <div className="flex items-center gap-2 text-xs">
-            <span className="inline-flex items-center px-2 py-1 rounded bg-accent-periwinkle/30 border border-accent-periwinkle text-text-primary font-bold">Pastel Palette Active</span>
-            <span className="inline-flex items-center px-2 py-1 rounded bg-accent-rose/50 border border-accent-rose text-[color:var(--theme-text-body)] font-bold">AI Matched</span>
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs">
+            <span className="inline-flex items-center px-2 sm:px-2.5 py-1 rounded bg-accent-periwinkle/30 border border-accent-periwinkle text-text-primary font-bold whitespace-nowrap">Pastel Palette Active</span>
+            <span className="inline-flex items-center px-2 sm:px-2.5 py-1 rounded bg-accent-rose/50 border border-accent-rose text-[color:var(--theme-text-body)] font-bold whitespace-nowrap">AI Matched</span>
           </div>
         </div>
 
-        {/* Error State */}
-        {scholarshipError && (
-          <div className="flex flex-col items-center justify-center bg-[color:var(--theme-surface)] border border-red-200 rounded-2xl p-12 text-center shadow-sm">
-            <AlertCircle className="h-12 w-12 text-red-400 mb-4" />
-            <h3 className="font-bold text-lg text-text-primary mb-2">Could Not Load Scholarships</h3>
-            <p className="text-sm text-[color:var(--theme-text-muted)] max-w-md mb-1">
-              The backend server may be waking up from sleep (free-tier cold start can take 30–60 seconds).
-            </p>
-            <p className="text-xs text-[color:var(--theme-text-muted)] max-w-md mb-6">
-              Error: {scholarshipError}
+        {/* Listings Grid */}
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="bg-[color:var(--theme-surface)]/80 border-2 border-accent-muted/40 rounded-[2rem] p-6 h-64 animate-pulse" />
+            ))}
+          </div>
+        ) : loadError ? (
+          <div className="flex flex-col items-center justify-center bg-[color:var(--theme-surface)] border border-accent-rose/30 rounded-[2rem] p-8 sm:p-16 text-center shadow-sm max-w-full">
+            <div className="h-12 w-12 rounded-full bg-accent-rose/20 flex items-center justify-center mb-4">
+              <span className="text-2xl">⚠️</span>
+            </div>
+            <h3 className="font-bold text-base sm:text-lg text-text-primary mb-2">Failed to Load Scholarships</h3>
+            <p className="text-xs sm:text-sm text-[color:var(--theme-text-muted)] max-w-xs sm:max-w-sm mb-6">
+              {loadError}
             </p>
             <button
-              onClick={handleRetry}
-              className="flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-full text-xs font-bold border border-accent-muted hover:bg-primary-hover transition-colors cursor-pointer"
+              onClick={() => {
+                setLoadError(null);
+                setIsLoading(true);
+                cachedScholarships = null;
+                loadScholarships()
+                  .then(data => {
+                    setScholarships(data);
+                    setLoadError(null);
+                    setIsLoading(false);
+                  })
+                  .catch(err => {
+                    const message = err instanceof Error ? err.message : String(err);
+                    console.error("[ScholarshipBrowser] Retry failed:", message);
+                    setLoadError(
+                      err instanceof TypeError
+                        ? "We couldn't connect to the server. It may be waking up from sleep — please try again in a moment."
+                        : `We couldn't load scholarships: ${message}`
+                    );
+                    setIsLoading(false);
+                  });
+              }}
+              className="bg-primary text-white px-5 py-2.5 rounded-full text-sm font-black border border-accent-muted hover:bg-primary-hover transition-colors cursor-pointer"
             >
-              <RefreshCw className="h-3.5 w-3.5" /> Retry
+              Retry
             </button>
           </div>
-        )}
-
-        {/* Loading Skeleton */}
-        {loadingScholarships && !scholarshipError && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {[1, 2, 3, 4].map((n) => (
-              <ScholarshipSkeleton key={n} />
-            ))}
+        ) : filteredScholarships.length > 0 ? (
+          <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+{currentScholarships.map((s) => {
+              return (
+                <ScholarshipCard
+                  key={s.name}
+                  scholarship={s}
+                  isExpanded={expandedCards[s.name] || false}
+                  onToggle={toggleCard}
+                />
+              );
+            })}
           </div>
-        )}
 
-        {/* Listings Grid */}
-        {!loadingScholarships && !scholarshipError && filteredScholarships.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {filteredScholarships.map((s) => (
-              <article
-                key={s.id}
-                className="bg-[color:var(--theme-surface)]/80 border-2 border-accent-muted/40 rounded-2xl p-6 flex flex-col justify-between hover:shadow-xl hover:border-accent-muted transition-all duration-300 group hover:-translate-y-1"
-              >
-                <div>
-                  {/* Tags */}
-                  <div className="flex flex-wrap items-center gap-1.5 mb-3.5">
-                    <span className={`text-[10px] font-bold tracking-wider uppercase px-2.5 py-0.5 rounded-full border ${
-                      s.type === "Public"
-                        ? "bg-accent-periwinkle/65 border-accent-muted text-text-primary"
-                        : "bg-primary/50 border-primary-hover text-text-primary"
-                    }`}>
-                      {s.type}
-                    </span>
-                    <span className="text-[10px] bg-[color:var(--theme-canvas)] border border-accent-periwinkle/80 text-[color:var(--theme-text-body)] font-bold px-2.5 py-0.5 rounded-full">
-                      {s.program === "Any" ? "Open for All Major streams" : `${s.program} major`}
-                    </span>
-                    {s.incomeBracket > 0 && (
-                      <span className="text-[10px] bg-accent-rose/70 border border-accent-rose text-[color:var(--theme-text-body)] font-bold px-2.5 py-0.5 rounded-full">
-                        Family Income Limit: ₱{s.incomeBracket.toLocaleString()}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Name and Sponsoring */}
-                  <h3 className="font-bold text-lg text-text-primary leading-tight group-hover:text-[color:var(--theme-typography-main)] mb-1">
-                    {s.name}
-                  </h3>
-                  <p className="text-xs text-[color:var(--theme-text-body)] font-medium mb-4">
-                    Sponsor: <span className="text-text-primary font-bold">{s.provider}</span>
-                  </p>
-
-                  {/* Benefits Block */}
-                  <div className="mb-4">
-                    <h4 className="text-xs font-bold text-text-primary mb-1.5 uppercase tracking-wide flex items-center gap-1">
-                      <GraduationCap className="h-3.5 w-3.5 text-[color:var(--theme-text-body)]" /> Key Benefits:
-                    </h4>
-                    <ul className="text-xs text-[color:var(--theme-text-body)] space-y-1 pl-4 list-disc">
-                      {s.benefits.slice(0, 3).map((b, idx) => (
-                        <li key={idx}>{b}</li>
-                      ))}
-                      {s.benefits.length > 3 && (
-                        <li className="text-[10px] font-bold text-[color:var(--theme-text-muted)] list-none mt-0.5">
-                          + {s.benefits.length - 3} more financial incentives
-                        </li>
-                      )}
-                    </ul>
-                  </div>
-
-                  {/* Requirements Block */}
-                  <div className="mb-6">
-                    <h4 className="text-xs font-bold text-text-primary mb-1.5 uppercase tracking-wide flex items-center gap-1">
-                      <AlertCircle className="h-3.5 w-3.5 text-[color:var(--theme-text-body)]" /> Base Requirements:
-                    </h4>
-                    <ul className="text-xs text-[color:var(--theme-text-body)] space-y-1 pl-4 list-circle">
-                      {s.requirements.map((r, idx) => (
-                        <li key={idx}>{r}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-
-                {/* Apply Button */}
-                <a
-                  href={s.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                    className="w-full flex items-center justify-center gap-2 bg-primary text-white py-2.5 rounded-xl text-xs font-bold border border-accent-muted shadow-sm hover:bg-primary-hover transition-colors focus:outline-none cursor-pointer text-center"
-                >
-                  Apply Directly <ExternalLink className="h-3.5 w-3.5" />
-                </a>
-              </article>
-            ))}
-          </div>
-        )}
-
-        {/* Empty State (no filters match, but data is loaded) */}
-        {!loadingScholarships && !scholarshipError && filteredScholarships.length === 0 && (
-          <div className="flex flex-col items-center justify-center bg-[color:var(--theme-surface)] border border-accent-periwinkle rounded-2xl p-16 text-center shadow-sm">
-            <Filter className="h-12 w-12 text-[color:var(--theme-typography-secondary)] mb-4 animate-pulse" />
-            <h3 className="font-bold text-lg text-text-primary mb-2">No Matching Aid Found</h3>
-            <p className="text-sm text-[color:var(--theme-text-muted)] max-w-sm">
-              We couldn't find any scholarships matching your active filter choices. Try clearing some attributes or adjusting family income constraints.
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <ScholarshipPagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
+          )}
+          </>
+        ) : (
+          <div className="flex flex-col items-center justify-center bg-[color:var(--theme-surface)] border border-accent-periwinkle rounded-[2rem] p-8 sm:p-16 text-center shadow-sm max-w-full">
+            <Filter className="h-10 sm:h-12 w-10 sm:w-12 text-[color:var(--theme-typography-secondary)] mb-4 animate-pulse" />
+            <h3 className="font-bold text-base sm:text-lg text-text-primary mb-2">No Matching Aid Found</h3>
+            <p className="text-xs sm:text-sm text-[color:var(--theme-text-muted)] max-w-xs sm:max-w-sm">
+              We couldn&apos;t find any scholarships matching your active filter choices. Try clearing some attributes or adjusting family income constraints.
             </p>
             <button
               onClick={handleResetFilters}
-              className="mt-6 bg-primary text-white px-5 py-2.5 rounded-full text-xs font-bold border border-accent-muted hover:bg-primary-hover transition-colors cursor-pointer"
+              className="mt-6 bg-primary text-white px-5 py-2.5 rounded-full text-sm font-black border border-accent-muted hover:bg-primary-hover transition-colors cursor-pointer"
             >
               Reset Filters
             </button>

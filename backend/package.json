@@ -7,8 +7,10 @@
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
+    "test:oauth": "node scripts/oauth-integration-check.js",
     "lint": "eslint . --ext .ts",
     "seed": "npx ts-node --transpile-only prisma/seed.ts",
+    "seed:questions": "npx ts-node --transpile-only prisma/seed-questions.ts",
     "postinstall": "npx prisma generate"
   },
   "dependencies": {
@@ -38,6 +40,6 @@
     "eslint": "^8.0.0",
     "prisma": "^7.8.0",
     "ts-node-dev": "^2.0.0",
-    "typescript": "^5.5.4"
+    "typescript": "^5.9.3"
   }
 }

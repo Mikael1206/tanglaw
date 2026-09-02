@@ -20,12 +20,12 @@ export default function AuthGuard({
     },
   });
 
-  if (status === "loading") {
+  if (status !== "authenticated") {
     return (
       <div className="min-h-screen grid place-items-center bg-base-light text-text-primary px-4">
-        <div className="rounded-3xl bg-white border border-accent-muted/40 p-8 shadow-2xl text-center max-w-sm">
-          <p className="text-sm font-bold">Verifying access…</p>
-          <p className="text-xs text-zinc-500 mt-2">Please wait while we prepare your dashboard.</p>
+        <div className="rounded-3xl bg-[color:var(--theme-surface)] border border-accent-muted/40 p-8 shadow-2xl text-center max-w-sm">
+          <p className="text-sm font-bold text-[color:var(--theme-typography-main)]">Verifying access…</p>
+          <p className="text-xs text-[color:var(--theme-text-muted)] mt-2">Please wait while we prepare your dashboard.</p>
         </div>
       </div>
     );

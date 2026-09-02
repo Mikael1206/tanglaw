@@ -2,17 +2,18 @@
 
 /**
  * Theme switcher component for the UI.
- * Persists the selected theme to localStorage and updates CSS custom properties.
+ * Uses next-themes for theme state management and applies CSS custom properties.
+ * Direct toggle between Light and Dark modes.
  */
+import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
 
 const THEME_KEY = "tanglaw-theme";
 
-const THEMES: Record<string, { label: string; icon: "sun" | "moon"; values: Record<string, string> }> = {
+const THEMES: Record<string, { label: string; values: Record<string, string> }> = {
   light: {
     label: "Light",
-    icon: "sun",
     values: {
       "--theme-primary": "#1B4079",
       "--theme-primary-hover": "#16355f",
@@ -32,11 +33,12 @@ const THEMES: Record<string, { label: string; icon: "sun" | "moon"; values: Reco
       "--theme-accent-muted": "#A0B4A8",
       "--theme-accent-periwinkle": "#B8C9E8",
       "--theme-accent-rose": "#E8C4C4",
+      "--theme-glow-primary": "0 0 0 transparent",
+      "--theme-glow-ai": "0 0 0 transparent",
     },
   },
   dark: {
     label: "Dark",
-    icon: "moon",
     values: {
       "--theme-primary": "#1B4079",
       "--theme-primary-hover": "#122f64",
@@ -56,11 +58,13 @@ const THEMES: Record<string, { label: string; icon: "sun" | "moon"; values: Reco
       "--theme-accent-muted": "#4A5A50",
       "--theme-accent-periwinkle": "#3A4F7A",
       "--theme-accent-rose": "#5A3A3A",
+      "--theme-glow-primary": "0 0 20px rgba(27,64,121,0.35)",
+      "--theme-glow-ai": "0 0 20px rgba(184,201,232,0.15)",
     },
   },
 };
 
-function applyTheme(themeName: string) {
+function applyThemeCSS(themeName: string) {
   const theme = THEMES[themeName] ?? THEMES.light;
   Object.entries(theme.values).forEach(([key, value]) => {
     document.documentElement.style.setProperty(key, value);
@@ -69,70 +73,51 @@ function applyTheme(themeName: string) {
 }
 
 export default function ThemeChanger() {
-  const [selectedTheme, setSelectedTheme] = useState("light");
-  const [isOpen, setIsOpen] = useState(false);
+  const { setTheme, resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
 
+  // After mounting, we have access to the theme
   useEffect(() => {
-    const storedTheme = window.localStorage.getItem(THEME_KEY) || "light";
-    const normalized = storedTheme === "dark" || storedTheme === "light" ? storedTheme : "light";
-    setSelectedTheme(normalized);
-    applyTheme(normalized);
+    setMounted(true);
   }, []);
 
-  const changeTheme = (themeName: string) => {
-    setSelectedTheme(themeName);
-    applyTheme(themeName);
-    setIsOpen(false);
+  // Sync CSS custom properties whenever resolvedTheme changes
+  useEffect(() => {
+    if (resolvedTheme) {
+      applyThemeCSS(resolvedTheme);
+    }
+  }, [resolvedTheme]);
+
+  const toggleTheme = () => {
+    const nextTheme = resolvedTheme === "light" ? "dark" : "light";
+    setTheme(nextTheme);
   };
 
-  const currentTheme = THEMES[selectedTheme];
-  const Icon = currentTheme.icon === "sun" ? Sun : Moon;
+  if (!mounted) {
+    // Render a placeholder button with same dimensions to prevent layout shift
+    return (
+      <button
+        disabled
+        className="inline-flex items-center justify-center h-10 w-10 rounded-full border border-white/15 bg-white/5 shadow-lg backdrop-blur-sm"
+        aria-label="Loading theme"
+      >
+        <span className="h-5 w-5" />
+      </button>
+    );
+  }
 
   return (
-    <div className="relative">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="inline-flex items-center justify-center h-10 w-10 rounded-full border border-white/15 bg-white/5 shadow-lg backdrop-blur-sm transition hover:bg-white/10 focus:outline-none"
-        aria-label="Toggle theme"
-        title={`Current theme: ${currentTheme.label}`}
-      >
-        <Icon className="h-5 w-5 text-[#d4d8a8]" />
-      </button>
-
-      {isOpen && (
-        <div className="absolute right-0 mt-2 w-48 rounded-2xl border border-white/15 bg-[#F4F9E2]/95 backdrop-blur-sm shadow-2xl z-50">
-          <div className="p-4">
-            <p className="text-[10px] uppercase tracking-[0.28em] font-black text-[#1B4079] mb-3">Select Theme</p>
-            <div className="space-y-2">
-              {Object.entries(THEMES).map(([key, theme]) => (
-                <button
-                  key={key}
-                  onClick={() => changeTheme(key)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${
-                    selectedTheme === key
-                      ? "bg-[#1B4079] text-[#F4F9E2]"
-                      : "bg-white/20 text-[#1B4079] hover:bg-white/40"
-                  }`}
-                >
-                  {theme.icon === "sun" ? (
-                    <Sun className="h-4 w-4" />
-                  ) : (
-                    <Moon className="h-4 w-4" />
-                  )}
-                  <span className="text-sm font-semibold">{theme.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
+    <button
+      onClick={toggleTheme}
+      className="inline-flex items-center justify-center h-10 w-10 rounded-full border border-white/15 bg-white/5 shadow-lg backdrop-blur-sm transition hover:bg-white/10 focus:outline-none"
+      aria-label={`Switch to ${resolvedTheme === "light" ? "dark" : "light"} theme`}
+      title={`Current theme: ${resolvedTheme === "light" ? "Light" : "Dark"}`}
+    >
+      {resolvedTheme === "light" ? (
+        <Moon className="h-5 w-5 text-[#d4d8a8]" />
+      ) : (
+        <Sun className="h-5 w-5 text-[#facc15]" />
       )}
-
-      {isOpen && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => setIsOpen(false)}
-        />
-      )}
-    </div>
+    </button>
   );
 }

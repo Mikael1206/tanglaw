@@ -26,7 +26,7 @@ export interface FormattedScholarship {
  */
 export async function searchScholarshipsAsContext(
   query: string,
-  topK: number = 8
+  topK: number = 50
 ): Promise<string> {
   const sanitized = query.replace(/[%_]/g, "\\$&"); // escape LIKE wildcards
 
@@ -44,13 +44,8 @@ export async function searchScholarshipsAsContext(
   });
 
   if (records.length === 0) {
-    // Fallback: if no matches, return all scholarships so the LLM can still answer
-    const all = await prisma.scholarship.findMany({
-      take: topK,
-      orderBy: { name: "asc" },
-    });
-    const formatted = all.map(formatScholarshipRecord);
-    return formatted.join("\n\n---\n\n");
+    // Fallback: if no matches, return ALL scholarships so the LLM can still answer
+    return getAllScholarshipsAsContext();
   }
 
   return records.map(formatScholarshipRecord).join("\n\n---\n\n");

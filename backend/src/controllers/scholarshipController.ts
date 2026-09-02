@@ -23,7 +23,7 @@ export const getScholarships = async (req: Request, res: Response) => {
     const sector = parseStringQuery(req.query.sector)?.toUpperCase();
     const gwa = parseNumberQuery(req.query.gwa, NaN);
     const page = Math.max(parseNumberQuery(req.query.page, 1), 1);
-    const pageSize = Math.min(Math.max(parseNumberQuery(req.query.pageSize, 20), 1), 50);
+    const pageSize = Math.min(Math.max(parseNumberQuery(req.query.pageSize, 100), 1), 500);
 
     const where: Prisma.ScholarshipWhereInput = {};
     if (program) {
@@ -42,6 +42,7 @@ export const getScholarships = async (req: Request, res: Response) => {
       take: pageSize,
       select: {
         id: true,
+        minGwa: true,
         name: true,
         provider: true,
         sector: true,
@@ -58,8 +59,9 @@ export const getScholarships = async (req: Request, res: Response) => {
       name: scholarship.name,
       provider: scholarship.provider,
       type: scholarship.sector === "PUBLIC" ? "Public" : "Private",
+      minGwa: scholarship.minGwa,
       incomeBracket: Number(scholarship.incomeBracket),
-      program: scholarship.programCategories?.length ? scholarship.programCategories[0] : "Any",
+      programCategories: scholarship.programCategories || [],
       benefits: scholarship.benefits
         .split(/\r?\n/)
         .map((item) => item.trim())
@@ -73,7 +75,8 @@ export const getScholarships = async (req: Request, res: Response) => {
 
     res.json({ data: formatted });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "DB error" });
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[getScholarships] Database query failed:", message, err instanceof Error ? err.stack : "");
+    res.status(500).json({ error: `Database query failed: ${message}` });
   }
 };
