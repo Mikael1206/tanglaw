@@ -1,12 +1,13 @@
-const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+import { BACKEND_UNAUTHORIZED_EVENT } from "./auth-constants";
+import { getAuthToken, setAuthToken } from "./auth-storage";
+
+const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL?.trim().replace(/\/+$/, "");
 
 if (!backendUrl) {
   throw new Error("Missing NEXT_PUBLIC_BACKEND_URL in frontend environment");
 }
 
 const apiBase = `${backendUrl}/api`;
-const AUTH_TOKEN_KEY = "tanglaw-token";
-
 export interface BackendScholarship {
   id: string;
   name: string;
@@ -37,7 +38,7 @@ export interface BackendMessagePayload {
 export interface BackendUser {
   id: string;
   email: string;
-  name?: string;
+  name?: string | null;
 }
 
 export interface BackendQuestion {
@@ -57,22 +58,8 @@ const SUBJECT_TO_QUESTION_TYPE: Record<string, string> = {
   "Logical Reasoning": "LOGIC",
 };
 
-function getStoredToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(AUTH_TOKEN_KEY);
-}
-
-function setStoredToken(token: string | null) {
-  if (typeof window === "undefined") return;
-  if (token) {
-    window.localStorage.setItem(AUTH_TOKEN_KEY, token);
-  } else {
-    window.localStorage.removeItem(AUTH_TOKEN_KEY);
-  }
-}
-
 async function authorizedFetch(input: RequestInfo, init: RequestInit = {}) {
-  const token = getStoredToken();
+  const token = getAuthToken();
   const headers = new Headers(init.headers ?? {});
   headers.set("Content-Type", "application/json");
   if (token) {
@@ -82,9 +69,9 @@ async function authorizedFetch(input: RequestInfo, init: RequestInit = {}) {
   const response = await fetch(input, { ...init, headers });
   if (!response.ok) {
     if (response.status === 401) {
-      setStoredToken(null);
+      setAuthToken(null);
       if (typeof window !== "undefined") {
-        window.location.replace("/login?expired=1");
+        window.dispatchEvent(new Event(BACKEND_UNAUTHORIZED_EVENT));
       }
       throw new Error("Your session has expired. Please sign in again.");
     }
@@ -108,24 +95,6 @@ export async function signupAccount(fullName: string, email: string, password: s
   }
 
   const payload = await response.json();
-  setStoredToken(payload.token);
-  return payload.user;
-}
-
-export async function loginUser(email: string, password: string): Promise<BackendUser> {
-  const response = await fetch(`${apiBase}/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Login failed: ${response.status} ${response.statusText} ${errorText}`);
-  }
-
-  const payload = await response.json();
-  setStoredToken(payload.token);
   return payload.user;
 }
 
@@ -133,7 +102,7 @@ export async function logoutUser(): Promise<void> {
   await authorizedFetch(`${apiBase}/auth/logout`, {
     method: "POST",
   });
-  setStoredToken(null);
+  setAuthToken(null);
 }
 
 export async function getCurrentUser(): Promise<BackendUser> {

@@ -722,19 +722,7 @@ export default function NatureCanvas({
         ctx.restore();
       }
 
-      // Mouse cursor glow
-      if (mouse.active) {
-        const cursorRadius = 60;
-        const cursorGrad = ctx.createRadialGradient(mouse.x, mouse.y, 0, mouse.x, mouse.y, cursorRadius);
-        const cursorColor = currentTheme === "light" ? "184, 201, 232" : "100, 200, 255";
-        cursorGrad.addColorStop(0, `rgba(${cursorColor}, 0.12)`);
-        cursorGrad.addColorStop(0.5, `rgba(${cursorColor}, 0.04)`);
-        cursorGrad.addColorStop(1, "rgba(0,0,0,0)");
-        ctx.fillStyle = cursorGrad;
-        ctx.beginPath();
-        ctx.arc(mouse.x, mouse.y, cursorRadius, 0, Math.PI * 2);
-        ctx.fill();
-      }
+
 
       // Decay velocities each frame so they die out when movement stops
       mouse.windX *= 0.96;

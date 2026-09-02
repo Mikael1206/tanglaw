@@ -16,7 +16,7 @@ if ! npx prisma generate 2>&1; then
 fi
 
 echo "[2/4] Pushing database schema..."
-if ! npx prisma db push --accept-data-loss 2>&1; then
+if ! npx prisma db push 2>&1; then
   echo "❌ Schema push failed — cannot continue without database schema."
   exit 1
 fi

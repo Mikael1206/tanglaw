@@ -7,6 +7,7 @@ import type { Metadata } from "next";
 import { Inter, Outfit } from "next/font/google";
 import "./globals.css";
 import { DynamicNatureCanvas } from "@/components/dynamic-backgrounds";
+import GlowCursorLayer from "@/components/glow-cursor-layer";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import { ThemeProvider } from "next-themes";
@@ -62,6 +63,7 @@ export default function RootLayout({
         <FaviconSwitcher />
         <Suspense fallback={null}>
           <DynamicNatureCanvas />
+          <GlowCursorLayer />
         </Suspense>
 
         <SiteHeader />

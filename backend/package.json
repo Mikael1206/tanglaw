@@ -7,6 +7,7 @@
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
+    "test:oauth": "node scripts/oauth-integration-check.js",
     "lint": "eslint . --ext .ts",
     "seed": "npx ts-node --transpile-only prisma/seed.ts",
     "seed:questions": "npx ts-node --transpile-only prisma/seed-questions.ts",

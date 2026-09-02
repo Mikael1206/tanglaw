@@ -38,6 +38,9 @@ app.use((req, res) => {
 });
 
 const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
+  if (err && typeof err === "object" && "type" in err && err.type === "entity.parse.failed") {
+    return res.status(400).json({ error: "Invalid JSON request body." });
+  }
   console.error(err);
   if (res.headersSent) {
     return;

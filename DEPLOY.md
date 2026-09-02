@@ -8,7 +8,7 @@
 ┌──────────────────┐     ┌──────────────────┐     ┌──────────────────────┐
 │  Vercel (Free)   │────▶│  Render (Free)   │────▶│  Supabase (Free)     │
 │  Next.js 16      │     │  Express API     │     │  PostgreSQL          │
-│  tanglaw.vercel.app│    │  tanglaw-api.onrender.com│  pgvector enabled    │
+│  tanglaw-project.vercel.app│    │  tanglaw-api.onrender.com│  pgvector enabled    │
 └──────────────────┘     └──────────────────┘     └──────────────────────┘
 ```
 
@@ -80,10 +80,12 @@ After the initial deploy (it will fail the first time — that's expected), go t
 
 | Variable | Value |
 |----------|-------|
-| `FRONTEND_URL` | Your Vercel URL — **no trailing slash** (e.g. `https://tanglaw.vercel.app`, not `https://tanglaw.vercel.app/`) |
+| `FRONTEND_URL` | `https://tanglaw-project.vercel.app` (no trailing slash) |
 | `DATABASE_URL` | **Pooler connection string** from Supabase (port 6543) — see note below |
 | `DIRECT_URL` | Direct connection string from Step 1 (port 5432) — for `prisma db push` |
 | `OPENROUTER_API_KEY` | Your key from Step 2 |
+| `JWT_SECRET` | A random server-only secret (Render can generate it) |
+| `OAUTH_BRIDGE_SECRET` | A random server-only secret shared only with Vercel; generate it independently from `NEXTAUTH_SECRET`, `JWT_SECRET`, and `GOOGLE_API_KEY` |
 
 > ⚠️ **Important:** Supabase free-tier databases use **IPv6 only** on the direct port (5432). Render's free plan may not support IPv6 outbound connections. You **must** use the **connection pooler** (port **6543**) for `DATABASE_URL`.
 >
@@ -133,21 +135,57 @@ Click **Environment Variables** and add:
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://[YOUR-REF].supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Your Supabase anon key (Settings → API) |
 | `NEXTAUTH_SECRET` | Run `openssl rand -base64 32` or use any random 32+ char string |
-| `NEXTAUTH_URL` | Leave blank initially — Vercel sets this automatically |
+| `NEXTAUTH_URL` | `https://tanglaw-project.vercel.app` in production (`http://localhost:3000` locally) |
 | `DATABASE_URL` | Same Supabase connection string from Step 1 |
+| `GOOGLE_CLIENT_ID` | Google Web OAuth client ID (server-only) |
+| `GOOGLE_CLIENT_SECRET` | Google Web OAuth client secret (server-only) |
+| `AZURE_AD_CLIENT_ID` | Microsoft Entra application (client) ID (server-only) |
+| `AZURE_AD_CLIENT_SECRET` | Microsoft Entra client secret value (server-only) |
+| `AZURE_AD_TENANT_ID` | `common` |
+| `OAUTH_BRIDGE_SECRET` | Exactly the same value as Render; server-only |
 | `GOOGLE_API_KEY` | (Optional) For Gemini fallback — skip if using OpenRouter only |
 | `GROQ_API_KEY` | (Optional) For Groq fallback — skip if using OpenRouter only |
+
+`OAUTH_BRIDGE_SECRET` must match on Render and Vercel, but must not be reused as `NEXTAUTH_SECRET`, `JWT_SECRET`, or `GOOGLE_API_KEY`. `GOOGLE_API_KEY` is the unrelated Gemini key. Never use it as the Google OAuth client secret or as the bridge secret.
 
 8. Click **Deploy**
 9. Wait ~2-3 minutes for the build
 
 ### Update the Backend's CORS
 
-Once Vercel gives you a URL (e.g. `https://tanglaw.vercel.app`):
+Once Vercel gives you the stable URL `https://tanglaw-project.vercel.app`:
 
 1. Go back to **Render Dashboard → tanglaw-api → Environment**
-2. Update `FRONTEND_URL` to `https://tanglaw.vercel.app`
+2. Update `FRONTEND_URL` to `https://tanglaw-project.vercel.app`
 3. Click **Save Changes** → **Manual Deploy → Deploy latest commit**
+
+---
+
+## Step 4a — Configure Google and Microsoft sign-in
+
+Create one Google Web OAuth client with an External audience and one Microsoft Entra Web app configured for personal plus work/school accounts. Use `common` as the Microsoft tenant. Register only these callback URLs:
+
+```text
+http://localhost:3000/api/auth/callback/google
+http://localhost:3000/api/auth/callback/azure-ad
+https://tanglaw-project.vercel.app/api/auth/callback/google
+https://tanglaw-project.vercel.app/api/auth/callback/azure-ad
+```
+
+The app requests only `openid email profile`, forces `select_account`, and does not store provider access or refresh tokens. Microsoft sign-in requires an actual `email` claim; `preferred_username` is never used as a substitute. Preview Vercel domains are not supported in v1.
+
+Before the first production deploy, inspect the Prisma diff against the production database:
+
+```bash
+cd backend
+npx prisma migrate diff --from-url "$DIRECT_URL" --to-schema-datamodel prisma/schema.prisma
+```
+
+Stop if the diff contains a drop or data rewrite. The expected auth diff is two nullable `User` columns and one unique composite index. Render startup refuses destructive `db push` confirmation.
+
+Deploy the backend schema and `/api/auth/oauth/exchange` first. Configure provider credentials and the matching bridge secret on Vercel, then deploy the frontend. If rollback is needed, roll back the frontend first and keep the additive backend fields and endpoint.
+
+Release check: `https://tanglaw-project.vercel.app/api/auth/providers` must list `credentials`, `google`, and `azure-ad`.
 
 ---
 
@@ -197,7 +235,7 @@ Your stack:
 
 | Layer | URL | Cost |
 |-------|-----|------|
-| **Frontend** | `https://tanglaw.vercel.app` | **$0** |
+| **Frontend** | `https://tanglaw-project.vercel.app` | **$0** |
 | **Backend** | `https://tanglaw-api.onrender.com` | **$0** |
 | **Database** | Supabase PostgreSQL (Singapore) | **$0** |
 | **LLM** | OpenRouter (free models) | **$0** |

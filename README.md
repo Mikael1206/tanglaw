@@ -24,7 +24,7 @@ TANGLAW addresses these challenges by providing a centralized, AI-powered platfo
 | **Backend** | Express.js, TypeScript (CommonJS), Prisma v7 ORM |
 | **Database** | PostgreSQL (Supabase), pgvector for embeddings |
 | **AI / LLM** | Google Gemini 3.1 Flash-Lite (primary), OpenRouter free models (fallback cascade), LangChain |
-| **Authentication** | NextAuth.js v4 (CredentialsProvider), JWT (jsonwebtoken + bcryptjs) |
+| **Authentication** | NextAuth.js v4 (Credentials, Google, Microsoft Entra), JWT (jsonwebtoken + bcryptjs) |
 | **Testing** | Vitest (unit), Playwright (E2E) |
 | **Deployment** | Vercel (frontend), Render (backend), Supabase (database) |
 | **Package Manager** | npm |

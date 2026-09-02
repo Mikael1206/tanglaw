@@ -5,58 +5,86 @@
  * Pill-shaped glassmorphism navbar inspired by Landas.
  * Hides itself when the user is inside dashboard routes.
  */
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useSyncExternalStore } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Menu, X } from "lucide-react";
 import ThemeChanger from "@/components/theme-changer";
+import StaggeredMenu, {
+  type StaggeredMenuItem,
+  type StaggeredMenuSocialItem,
+} from "@/components/ui/StaggeredMenu";
+import GooeyNav, { type GooeyNavItem } from "@/components/ui/GooeyNav";
+import { getAuthToken } from "@/lib/auth-storage";
 
-function NavLink({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {
-  return (
-    <Link
-      href={href}
-      className={`group relative rounded-full px-3.5 py-1.5 text-[10px] font-semibold tracking-[0.18em] uppercase transition-all duration-500 sm:px-4 ${
-        active
-          ? "bg-primary/15 text-primary"
-          : "text-[color:var(--theme-typography-secondary)] hover:bg-white/5 hover:text-[color:var(--theme-typography-main)]"
-      }`}
-    >
-      {children}
-      <span
-        className={`absolute -bottom-0.5 left-1/2 h-px -translate-x-1/2 rounded-full bg-primary/40 transition-all duration-500 ${
-          active ? "w-3/5 opacity-100" : "w-0 opacity-0 group-hover:w-2/5 group-hover:opacity-60"
-        }`}
-      />
-    </Link>
-  );
+function subscribeAuth(callback: () => void) {
+  window.addEventListener("storage", callback);
+  window.addEventListener("tanglaw-auth-change", callback);
+  return () => {
+    window.removeEventListener("storage", callback);
+    window.removeEventListener("tanglaw-auth-change", callback);
+  };
+}
+
+function getAuthSnapshot() {
+  return !!getAuthToken();
+}
+
+function getAuthServerSnapshot() {
+  return false;
 }
 
 export default function SiteHeader() {
   const pathname = usePathname();
   const isDashboard = pathname?.startsWith("/dashboard");
   const isHome = pathname === "/";
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  useEffect(() => {
-    setIsAuthenticated(!!localStorage.getItem("tanglaw-token"));
-    const handler = () => setIsAuthenticated(!!localStorage.getItem("tanglaw-token"));
-    window.addEventListener("storage", handler);
-    window.addEventListener("tanglaw-auth-change", handler);
-    return () => {
-      window.removeEventListener("storage", handler);
-      window.removeEventListener("tanglaw-auth-change", handler);
-    };
-  }, []);
+  const isAuthenticated = useSyncExternalStore(subscribeAuth, getAuthSnapshot, getAuthServerSnapshot);
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolledAway, setScrolledAway] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [atTop, setAtTop] = useState(true);
-  const menuRef = useRef<HTMLDivElement>(null);
   const lastScrollY = useRef(0);
 
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (prevPathname !== pathname) {
+    setPrevPathname(pathname);
+    setScrolledAway(false);
+    setMenuOpen(false);
+    setAtTop(true);
+  }
+
+  useEffect(() => {
+    lastScrollY.current = 0;
+  }, [pathname]);
+
   // Visibility: show at top or on hover; other pages also visible unless scrolled away
-  const isVisible = hovered || atTop || (!isHome && !scrolledAway);
+  const isVisible = menuOpen || hovered || atTop || (!isHome && !scrolledAway);
+
+  const menuItems: StaggeredMenuItem[] = [
+    { label: "Home", ariaLabel: "Go to home page", link: "/" },
+    { label: "About", ariaLabel: "Learn about TANGLAW", link: "/about" },
+    { label: "Contact", ariaLabel: "Contact us", link: "/contact" },
+    ...(isAuthenticated
+      ? [{ label: "Dashboard", ariaLabel: "Go to dashboard", link: "/dashboard" }]
+      : [
+          { label: "Log In", ariaLabel: "Log in to TANGLAW", link: "/login" },
+          { label: "Sign Up", ariaLabel: "Create an account", link: "/signup" },
+        ]),
+  ];
+
+  const desktopNavItems: GooeyNavItem[] = [
+    { label: "Home", href: "/" },
+    { label: "About", href: "/about" },
+    { label: "Contact", href: "/contact" },
+    ...(isAuthenticated
+      ? [{ label: "Dashboard", href: "/dashboard" }]
+      : [{ label: "Log In", href: "/login" }]),
+  ];
+
+  const socialItems: StaggeredMenuSocialItem[] = [
+    { label: "PUP Manila", link: "https://pup.edu.ph" },
+    { label: "About Us", link: "/about" },
+  ];
 
   useEffect(() => {
     if (isDashboard) return;
@@ -73,24 +101,6 @@ export default function SiteHeader() {
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, [isDashboard]);
-
-  useEffect(() => {
-    setScrolledAway(false);
-    setMenuOpen(false);
-    setAtTop(true);
-    lastScrollY.current = 0;
-  }, [pathname]);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    function handleClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [menuOpen]);
 
   if (isDashboard) {
     return null;
@@ -114,119 +124,6 @@ export default function SiteHeader() {
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
-        {/* Mobile layout: logo left, hamburger right */}
-        <div className="md:hidden flex items-center justify-between w-full">
-          <Link href="/" className="flex items-center gap-2" aria-label="Go to home">
-            <div className="h-9 w-9 rounded-full border border-white/10 bg-[color:var(--theme-surface)] shadow-lg shadow-black/20 flex items-center justify-center">
-              <Image
-                src="/assets/owel-head.webp"
-                alt="Owel Logo"
-                width={30}
-                height={30}
-                className="object-cover"
-              />
-            </div>
-            <span className="font-display text-xl font-black tracking-[0.12em] text-[color:var(--theme-typography-main)]">
-              TANGLAW
-            </span>
-            <span className="rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-primary shadow-sm">
-              Beta
-            </span>
-          </Link>
-
-          <div className="flex items-center gap-2">
-            <ThemeChanger />
-
-            <div ref={menuRef}>
-            <button
-              onClick={() => setMenuOpen(!menuOpen)}
-              className="flex items-center justify-center h-10 w-10 rounded-full border border-white/10 bg-[color:var(--theme-surface)]/60 backdrop-blur-xl shadow-lg transition-all duration-500 hover:bg-[color:var(--theme-surface)]/80"
-              aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
-              aria-expanded={menuOpen}
-            >
-              {menuOpen ? (
-                <X className="h-5 w-5 text-[color:var(--theme-typography-main)]" />
-              ) : (
-                <Menu className="h-5 w-5 text-[color:var(--theme-typography-main)]" />
-              )}
-            </button>
-
-            {menuOpen && (
-              <>
-                <div
-                  className="fixed inset-0 z-40 bg-black/35 transition-opacity duration-150"
-                  style={{ top: "100%" }}
-                  onClick={() => setMenuOpen(false)}
-                  aria-hidden="true"
-                />
-                <div className="absolute top-12 right-0 z-50 w-52 overflow-hidden rounded-2xl border border-white/10 bg-[color:var(--theme-surface)]/80 backdrop-blur-xl shadow-2xl shadow-black/30 origin-top transition-all duration-150">
-                  <nav className="flex flex-col gap-1 p-3 text-[11px] uppercase tracking-[0.18em] font-semibold">
-                    <Link
-                      href="/"
-                      className={`rounded-full px-4 py-2.5 transition-all duration-300 ${
-                        pathname === "/"
-                          ? "bg-primary/15 text-primary"
-                          : "text-[color:var(--theme-typography-secondary)] hover:bg-white/5 hover:text-[color:var(--theme-typography-main)]"
-                      }`}
-                    >
-                      Home
-                    </Link>
-                    <Link
-                      href="/about"
-                      className={`rounded-full px-4 py-2.5 transition-all duration-300 ${
-                        pathname === "/about"
-                          ? "bg-primary/15 text-primary"
-                          : "text-[color:var(--theme-typography-secondary)] hover:bg-white/5 hover:text-[color:var(--theme-typography-main)]"
-                      }`}
-                    >
-                      About
-                    </Link>
-                    <Link
-                      href="/contact"
-                      className={`rounded-full px-4 py-2.5 transition-all duration-300 ${
-                        pathname === "/contact"
-                          ? "bg-primary/15 text-primary"
-                          : "text-[color:var(--theme-typography-secondary)] hover:bg-white/5 hover:text-[color:var(--theme-typography-main)]"
-                      }`}
-                    >
-                      Contact
-                    </Link>
-                    {isAuthenticated ? (
-                      <Link
-                        href="/dashboard"
-                        className={`rounded-full px-4 py-2.5 transition-all duration-300 ${
-                          pathname?.startsWith("/dashboard")
-                            ? "bg-primary/15 text-primary"
-                            : "text-[color:var(--theme-typography-secondary)] hover:bg-white/5 hover:text-[color:var(--theme-typography-main)]"
-                        }`}
-                      >
-                        Dashboard
-                      </Link>
-                    ) : (
-                      <>
-                        <div className="my-1 h-px bg-white/10" />
-                        <Link
-                          href="/login"
-                          className="rounded-full px-4 py-2.5 text-[color:var(--theme-typography-secondary)] hover:bg-white/5 hover:text-[color:var(--theme-typography-main)] transition-all duration-300"
-                        >
-                          Log In
-                        </Link>
-                        <Link
-                          href="/signup"
-                          className="rounded-full bg-primary/90 px-4 py-2.5 text-center text-white transition-all duration-300 hover:bg-primary"
-                        >
-                          Sign Up
-                        </Link>
-                      </>
-                    )}
-                  </nav>
-                </div>
-              </>
-            )}
-          </div>
-          </div>
-        </div>
-
         {/* Desktop layout: logo inside pill nav */}
         <div className="hidden md:flex w-full max-w-4xl items-center justify-center">
           <nav className="flex items-center gap-1 rounded-full border border-white/10 bg-[color:var(--theme-surface)]/60 px-3 py-2.5 shadow-[0_4px_30px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-xl transition-all duration-700 sm:gap-2 sm:px-5">
@@ -250,40 +147,71 @@ export default function SiteHeader() {
 
             <div className="mx-1 h-4 w-px bg-white/10 sm:mx-2" />
 
-            <NavLink href="/" active={pathname === "/"}>
-              Home
-            </NavLink>
-            <NavLink href="/about" active={pathname === "/about"}>
-              About
-            </NavLink>
-            <NavLink href="/contact" active={pathname === "/contact"}>
-              Contact
-            </NavLink>
+            <GooeyNav
+              items={desktopNavItems}
+              activeHref={pathname}
+              particleCount={15}
+              particleDistances={[90, 10]}
+              particleR={100}
+              animationTime={600}
+              timeVariance={300}
+              colors={[1, 2, 3, 1, 2, 3, 1, 4]}
+            />
 
-            <div className="mx-1 h-4 w-px bg-white/10 sm:mx-2" />
-
-            {isAuthenticated ? (
-              <NavLink href="/dashboard" active={pathname?.startsWith("/dashboard") ?? false}>
-                Dashboard
-              </NavLink>
-            ) : (
-              <>
-                <NavLink href="/login" active={pathname === "/login"}>
-                  Log In
-                </NavLink>
-                <Link
-                  href="/signup"
-                  className="rounded-full bg-primary/90 px-4 py-1.5 text-[10px] font-semibold tracking-[0.18em] uppercase text-white shadow-[0_0_16px_rgba(27,64,121,0.2)] transition-all duration-500 hover:bg-primary hover:shadow-[0_0_20px_rgba(27,64,121,0.3)]"
-                >
-                  Sign Up
-                </Link>
-              </>
+            {!isAuthenticated && (
+              <Link
+                href="/signup"
+                className="rounded-full bg-primary/90 px-4 py-1.5 text-[10px] font-semibold tracking-[0.18em] uppercase text-white shadow-[0_0_16px_rgba(27,64,121,0.2)] transition-all duration-500 hover:bg-primary hover:shadow-[0_0_20px_rgba(27,64,121,0.3)] ml-1"
+              >
+                Sign Up
+              </Link>
             )}
 
             <div className="mx-1 h-4 w-px bg-white/10 sm:mx-2" />
 
             <ThemeChanger />
           </nav>
+        </div>
+
+        {/* Mobile layout: logo left, StaggeredMenu right */}
+        <div className="md:hidden flex items-center justify-between w-full">
+          <Link href="/" className="flex items-center gap-2" aria-label="Go to home">
+            <div className="h-9 w-9 rounded-full border border-white/10 bg-[color:var(--theme-surface)] shadow-lg shadow-black/20 flex items-center justify-center">
+              <Image
+                src="/assets/owel-head.webp"
+                alt="Owel Logo"
+                width={30}
+                height={30}
+                className="object-cover"
+              />
+            </div>
+            <span className="font-display text-xl font-black tracking-[0.12em] text-[color:var(--theme-typography-main)]">
+              TANGLAW
+            </span>
+            <span className="rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-primary shadow-sm">
+              Beta
+            </span>
+          </Link>
+
+          <div className="flex items-center gap-2 relative z-50">
+            <ThemeChanger />
+
+            <StaggeredMenu
+              position="right"
+              items={menuItems}
+              socialItems={socialItems}
+              displaySocials={true}
+              displayItemNumbering={true}
+              colors={["#B8C9E8", "#7F9C96", "#1B4079"]}
+              accentColor="var(--theme-primary, #1B4079)"
+              menuButtonColor="var(--theme-typography-main, #1B4079)"
+              openMenuButtonColor="var(--theme-typography-main, #1B4079)"
+              isFixed={true}
+              showLogo={false}
+              onMenuOpen={() => setMenuOpen(true)}
+              onMenuClose={() => setMenuOpen(false)}
+            />
+          </div>
         </div>
       </header>
     </>

@@ -13,6 +13,7 @@ import dynamic from "next/dynamic";
 import AuthGuard from "@/components/AuthGuard";
 import NextAuthProvider from "@/components/NextAuthProvider";
 import ThemeChanger from "@/components/theme-changer";
+import { setAuthToken } from "@/lib/auth-storage";
 
 const EtheralShadow = dynamic(
   () => import("../../../components/ui/etheral-shadow").then((mod) => mod.EtheralShadow),
@@ -89,6 +90,8 @@ export default function DashboardLayout({
   }, [menuOpen]);
 
   const handleSignOut = async () => {
+    setAuthToken(null);
+    window.dispatchEvent(new Event("tanglaw-auth-change"));
     try {
       await signOut({ redirect: false });
     } catch (error) {

@@ -1,14 +1,6 @@
 import { NextFunction, Request, Response } from "express";
-import jwt from "jsonwebtoken";
 import { getUserById } from "../services/supabaseUserDb";
-
-const JWT_SECRET = process.env.JWT_SECRET ?? "dev-jwt-secret-change-me";
-
-type JwtPayload = {
-  userId: string;
-  email: string;
-  name?: string | null;
-};
+import { verifyAuthToken } from "../services/authToken";
 
 export type AuthenticatedRequest = Request & {
   user?: {
@@ -27,7 +19,7 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
   }
 
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as JwtPayload;
+    const payload = verifyAuthToken(token);
     const user = await getUserById(payload.userId);
 
     if (!user) {

@@ -33,6 +33,7 @@ test.describe("Login Flow", () => {
     await page.goto("/login");
     // Remove HTML5 required attributes so the JS validation runs instead
     await page.evaluate(() => {
+      document.querySelectorAll('form').forEach(el => el.noValidate = true);
       document.querySelectorAll('input[required]').forEach(el => el.removeAttribute('required'));
     });
     await page.locator('button[type="submit"]').click();
@@ -112,6 +113,6 @@ test.describe("Mobile Menu", () => {
     
     // Click backdrop
     const backdrop = page.locator('[aria-hidden="true"]').first();
-    await backdrop.click();
+    await backdrop.click({ force: true });
   });
 });

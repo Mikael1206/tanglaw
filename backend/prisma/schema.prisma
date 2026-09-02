@@ -36,17 +36,21 @@ model Question {
 }
 
 model User {
-  id              String    @id @default(uuid())
-  email           String    @unique
-  name            String?
-  passwordHash    String?
-  emailVerified   Boolean   @default(false)
-  yearLevel       String?
-  program         String?
-  gwa             Float?
-  financialStatus String?
-  createdAt       DateTime  @default(now())
-  messages        Message[]
+  id                    String    @id @default(uuid())
+  email                 String    @unique
+  name                  String?
+  passwordHash          String?
+  emailVerified         Boolean   @default(false)
+  authProvider          String?
+  authProviderAccountId String?
+  yearLevel             String?
+  program               String?
+  gwa                   Float?
+  financialStatus       String?
+  createdAt             DateTime  @default(now())
+  messages              Message[]
+
+  @@unique([authProvider, authProviderAccountId])
 }
 
 model Message {

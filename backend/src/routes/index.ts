@@ -2,7 +2,7 @@ import { Router } from "express";
 import { getScholarships } from "../controllers/scholarshipController";
 import { getQuestions } from "../controllers/questionController";
 import { createMessage, getMessagesForUser, chatWithOwel } from "../controllers/chatController";
-import { signup, login, me, logout } from "../controllers/authController";
+import { signup, login, me, logout, oauthExchange } from "../controllers/authController";
 import { authenticateToken } from "../middleware/auth";
 
 /**
@@ -18,6 +18,7 @@ router.get("/health", (_req, res) => {
 
 router.post("/auth/signup", signup);
 router.post("/auth/login", login);
+router.post("/auth/oauth/exchange", oauthExchange);
 router.post("/auth/logout", authenticateToken, logout);
 router.get("/auth/me", authenticateToken, me);
 

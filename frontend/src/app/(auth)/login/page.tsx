@@ -2,17 +2,17 @@
 
 /**
  * Login page for the public authentication flow.
- * Uses local storage to simulate an authenticated session.
+ * NextAuth establishes the session; SessionSync mirrors the backend JWT locally.
  */
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { LogIn, ArrowRight, CheckCircle2, ShieldAlert } from "lucide-react";
-import { motion } from "framer-motion";
 import dynamic from "next/dynamic";
 import { GlowingText } from "../../../../components/ui/glowing-text";
-import { loginUser } from "@/lib/backend";
+import AuthProviderButtons from "@/components/auth-provider-buttons";
+import { getAuthErrorMessage } from "@/lib/auth-constants";
 
 const EtheralShadow = dynamic(
   () => import("../../../../components/ui/etheral-shadow").then((mod) => mod.EtheralShadow),
@@ -26,13 +26,14 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [showOAuth, setShowOAuth] = useState(false);
-
-  useEffect(() => {
-    if (searchParams.get("expired") === "1") {
-      setMessage({ type: "error", text: "Your session has expired. Please sign in again to continue." });
-    }
-  }, [searchParams]);
+  const queryError = searchParams.get("error");
+  const queryErrorCode = searchParams.get("expired") === "1" ? "SessionExpired" : queryError;
+  const queryErrorMessage = getAuthErrorMessage(queryErrorCode);
+  const [dismissedQueryError, setDismissedQueryError] = useState<string | null>(null);
+  const visibleMessage = message ??
+    (queryErrorMessage && dismissedQueryError !== queryErrorCode
+      ? { type: "error" as const, text: queryErrorMessage }
+      : null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,24 +44,24 @@ export default function LoginPage() {
 
     setLoading(true);
     setMessage(null);
+    setDismissedQueryError(queryErrorCode);
 
     try {
-      await loginUser(email, password);
       const result = await signIn("credentials", {
         redirect: false,
         email,
         password,
       });
 
-      if (result?.error) {
-        setMessage({ type: "error", text: result.error });
+      if (result?.ok !== true) {
+        setMessage({ type: "error", text: getAuthErrorMessage(result?.error) ?? "Unable to sign in. Please try again." });
       } else {
         router.push("/dashboard");
       }
-    } catch (error) {
+    } catch {
       setMessage({
         type: "error",
-        text: error instanceof Error ? error.message : "Unable to sign in.",
+        text: "Unable to sign in. Please try again.",
       });
     } finally {
       setLoading(false);
@@ -104,26 +105,26 @@ export default function LoginPage() {
             </h2>
           </div>
 
-          {message && (
+          {visibleMessage && (
             <div
               className={`mb-6 rounded-3xl border p-4 text-sm font-semibold ${
-                message.type === "success"
+                visibleMessage.type === "success"
                   ? "border-[color:var(--theme-borders-system)] bg-[color:var(--theme-canvas)]/50 text-[color:var(--theme-text-body)]"
                   : "border-[#a96b6b] bg-[#3b1b1b] text-[#f1c2c2]"
               }`}
             >
               <div className="flex items-start gap-3">
-                {message.type === "success" ? (
+                {visibleMessage.type === "success" ? (
                   <CheckCircle2 className="mt-0.5 h-5 w-5 text-[#85a3ff]" />
                 ) : (
                   <ShieldAlert className="mt-0.5 h-5 w-5 text-[#f5b0af]" />
                 )}
-                <span>{message.text}</span>
+                <span>{visibleMessage.text}</span>
               </div>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
             <label className="space-y-2 text-sm text-[color:var(--theme-text-body)]">
               <span className="font-semibold text-[color:var(--theme-typography-main)]">Email Address</span>
               <input
@@ -156,52 +157,10 @@ export default function LoginPage() {
               {loading ? "Verifying..." : <><LogIn className="h-4 w-4" /> Sign In</>}
             </button>
 
-            <div className="pt-4 border-t border-white/10">
-              <button
-                type="button"
-                onMouseEnter={() => setShowOAuth(true)}
-                onMouseLeave={() => setShowOAuth(false)}
-                className="w-full text-center text-sm font-semibold text-[color:var(--theme-typography-secondary)] hover:text-[color:var(--theme-typography-main)] transition"
-              >
-                More Sign-In Options
-              </button>
-
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={showOAuth ? { height: "auto", opacity: 1 } : { height: 0, opacity: 0 }}
-                transition={{ duration: 0.15 }}
-                className="overflow-hidden"
-                onMouseEnter={() => setShowOAuth(true)}
-                onMouseLeave={() => setShowOAuth(false)}
-              >
-                <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-                  <button
-                    type="button"
-                    className="w-full inline-flex items-center justify-center gap-3 rounded-full border border-white/15 bg-[color:var(--theme-canvas)]/90 px-4 py-3 text-sm font-semibold text-[color:var(--theme-typography-main)] transition hover:bg-[color:var(--theme-canvas)]"
-                  >
-                    <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
-                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
-                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                    </svg>
-                    Sign in with Google
-                  </button>
-                  <button
-                    type="button"
-                    className="w-full inline-flex items-center justify-center gap-3 rounded-full border border-white/15 bg-[color:var(--theme-canvas)]/90 px-4 py-3 text-sm font-semibold text-[color:var(--theme-typography-main)] transition hover:bg-[color:var(--theme-canvas)]"
-                  >
-                    <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
-                      <rect x="1" y="1" width="10" height="10" rx="1.5" fill="#F25022"/>
-                      <rect x="13" y="1" width="10" height="10" rx="1.5" fill="#7FBA00"/>
-                      <rect x="1" y="13" width="10" height="10" rx="1.5" fill="#00A4EF"/>
-                      <rect x="13" y="13" width="10" height="10" rx="1.5" fill="#FFB900"/>
-                    </svg>
-                    Sign in with Microsoft
-                  </button>
-                </div>
-              </motion.div>
-            </div>
+            <AuthProviderButtons
+              actionLabel="Sign in"
+              disabled={loading}
+            />
           </form>
 
           <p className="mt-6 text-center text-sm text-[color:var(--theme-text-body)]">

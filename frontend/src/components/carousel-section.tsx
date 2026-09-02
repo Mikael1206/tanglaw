@@ -1,130 +1,115 @@
 "use client";
 
-import React, { useRef, useState, useEffect, useCallback } from "react";
+import * as React from "react";
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Target, ClipboardCheck, Bot, LayoutGrid, BarChart3 } from "lucide-react";
+import {
+  Target,
+  ClipboardCheck,
+  Bot,
+  LayoutGrid,
+  BarChart3,
+} from "lucide-react";
 import { GlowingText } from "../../components/ui/glowing-text";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+  type CarouselApi,
+} from "@/components/ui/carousel";
 
-const PILLARS = [
+interface PillarItem {
+  id: number;
+  number: string;
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+}
+
+const PILLAR_ITEMS: PillarItem[] = [
   {
+    id: 1,
     number: "01",
     title: "Guided Scholarship Matching",
-    description: "TANGLAW turns raw grant criteria into student-friendly matches and decision prompts.",
-    Icon: Target,
+    description:
+      "TANGLAW turns raw grant criteria into student-friendly matches and decision prompts.",
+    icon: <Target className="h-6 w-6" />,
   },
   {
+    id: 2,
     number: "02",
     title: "Adaptive Readiness Check",
-    description: "Interactive drills help students identify strengths, gaps, and high-impact review areas.",
-    Icon: ClipboardCheck,
+    description:
+      "Interactive drills help students identify strengths, gaps, and high-impact review areas.",
+    icon: <ClipboardCheck className="h-6 w-6" />,
   },
   {
+    id: 3,
     number: "03",
     title: "AI Navigation Companion",
-    description: "Owel answers eligibility questions, simplifies terms, and recommends next steps.",
-    Icon: Bot,
+    description:
+      "Owel answers eligibility questions, simplifies terms, and recommends next steps.",
+    icon: <Bot className="h-6 w-6" />,
   },
   {
+    id: 4,
     number: "04",
     title: "Smart Scholarship Directory",
-    description: "Filter grants by institution, funder type, and requirement intensity in one interface.",
-    Icon: LayoutGrid,
+    description:
+      "Filter grants by institution, funder type, and requirement intensity in one interface.",
+    icon: <LayoutGrid className="h-6 w-6" />,
   },
   {
+    id: 5,
     number: "05",
     title: "Review Engine & Analytics",
-    description: "Practice modules and completion metrics keep learners motivated and accountable.",
-    Icon: BarChart3,
+    description:
+      "Practice modules and completion metrics keep learners motivated and accountable.",
+    icon: <BarChart3 className="h-6 w-6" />,
   },
-];
-
-const PILLAR_NUM_GRADIENTS = [
-  "from-[color:var(--theme-accent-periwinkle)] via-[color:var(--theme-typography-main)] to-[color:var(--theme-accent-periwinkle)]",
-  "from-[color:var(--theme-typography-main)] via-[color:var(--theme-accent-periwinkle)] to-[color:var(--theme-typography-main)]",
-  "from-[color:var(--theme-accent-periwinkle)] via-[color:var(--theme-typography-main)] to-[color:var(--theme-accent-periwinkle)]",
-  "from-[color:var(--theme-typography-main)] via-[color:var(--theme-accent-periwinkle)] to-[color:var(--theme-typography-main)]",
-  "from-[color:var(--theme-accent-periwinkle)] via-[color:var(--theme-typography-main)] to-[color:var(--theme-accent-periwinkle)]",
 ];
 
 export default function CarouselSection() {
-  const carouselRef = useRef<HTMLDivElement>(null);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const activeIndexRef = useRef(0);
-  const autoPlayRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const pauseUntilRef = useRef(0);
-  const isProgrammaticScroll = useRef(false);
+  const [api, setApi] = React.useState<CarouselApi>();
 
-  const getCardWidth = useCallback(() => {
-    if (typeof window === "undefined") return 576;
-    return window.innerWidth < 640 ? window.innerWidth - 48 : 576;
-  }, []);
+  const count = React.useSyncExternalStore(
+    React.useCallback(
+      (callback) => {
+        if (!api) return () => {};
+        api.on("reInit", callback);
+        api.on("select", callback);
+        return () => {
+          api.off("reInit", callback);
+          api.off("select", callback);
+        };
+      },
+      [api]
+    ),
+    () => (api ? api.scrollSnapList().length : 5),
+    () => 5
+  );
 
-  const scrollTo = useCallback((index: number) => {
-    if (!carouselRef.current) return;
-    isProgrammaticScroll.current = true;
-    const cardW = getCardWidth();
-    const gap = 24;
-    carouselRef.current.scrollTo({
-      left: index * (cardW + gap),
-      behavior: "smooth",
-    });
-    activeIndexRef.current = index;
-    setActiveIndex(index);
-  }, [getCardWidth]);
-
-  const nextSlide = useCallback(() => {
-    const next = (activeIndexRef.current + 1) % PILLARS.length;
-    scrollTo(next);
-  }, [scrollTo]);
-
-  const prevSlide = useCallback(() => {
-    const prev = (activeIndexRef.current - 1 + PILLARS.length) % PILLARS.length;
-    scrollTo(prev);
-  }, [scrollTo]);
-
-  const handleScroll = useCallback(() => {
-    if (!carouselRef.current) return;
-    const { scrollLeft } = carouselRef.current;
-    const cardW = getCardWidth();
-    const gap = 24;
-    const idx = Math.round(scrollLeft / (cardW + gap));
-    if (idx !== activeIndexRef.current && idx >= 0 && idx < PILLARS.length) {
-      activeIndexRef.current = idx;
-      setActiveIndex(idx);
-    }
-  }, [getCardWidth]);
-
-  const pauseAutoPlay = useCallback(() => {
-    pauseUntilRef.current = Date.now() + 8000;
-  }, []);
-
-  useEffect(() => {
-    autoPlayRef.current = setInterval(() => {
-      if (Date.now() >= pauseUntilRef.current) {
-        nextSlide();
-      }
-    }, 4000);
-    return () => {
-      if (autoPlayRef.current) clearInterval(autoPlayRef.current);
-    };
-  }, [nextSlide]);
-
-  useEffect(() => {
-    const el = carouselRef.current;
-    if (!el) return;
-    const onScroll = () => {
-      handleScroll();
-      if (!isProgrammaticScroll.current) {
-        pauseAutoPlay();
-      }
-      isProgrammaticScroll.current = false;
-    };
-    el.addEventListener("scroll", onScroll, { passive: true });
-    return () => el.removeEventListener("scroll", onScroll);
-  }, [handleScroll, pauseAutoPlay]);
+  const current = React.useSyncExternalStore(
+    React.useCallback(
+      (callback) => {
+        if (!api) return () => {};
+        api.on("select", callback);
+        api.on("reInit", callback);
+        return () => {
+          api.off("select", callback);
+          api.off("reInit", callback);
+        };
+      },
+      [api]
+    ),
+    () => (api ? api.selectedScrollSnap() + 1 : 1),
+    () => 1
+  );
 
   return (
-    <section className="mb-24 relative">
+    <section className="mb-24 relative max-w-6xl mx-auto px-4 sm:px-6">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -133,96 +118,83 @@ export default function CarouselSection() {
         style={{ willChange: "transform, opacity" }}
         className="text-center mb-10"
       >
-        <p className="text-[10px] uppercase tracking-[0.34em] text-[color:var(--theme-typography-secondary)] font-black">Our solution</p>
-        <h2 className="mt-4 text-2xl sm:text-3xl font-black text-[color:var(--theme-typography-main)]"><GlowingText glowType="primary">The five pillars of TANGLAW</GlowingText></h2>
+        <p className="text-[10px] uppercase tracking-[0.34em] text-[color:var(--theme-typography-secondary)] font-black">
+          Our solution
+        </p>
+        <h2 className="mt-4 text-2xl sm:text-3xl font-black text-[color:var(--theme-typography-main)]">
+          <GlowingText glowType="primary">The five pillars of TANGLAW</GlowingText>
+        </h2>
       </motion.div>
 
-      <div className="relative -mt-12">
-        <div
-          ref={carouselRef}
-          role="list"
-          aria-label="The five pillars of TANGLAW"
-          className="hide-scrollbar flex gap-6 overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth pt-12 pb-12 px-6 sm:px-0"
-          style={{ overscrollBehaviorX: "contain" }}
+      <div className="relative px-6 sm:px-10 md:px-12">
+        <Carousel
+          setApi={setApi}
+          opts={{
+            align: "start",
+            loop: true,
+          }}
+          className="w-full"
         >
-          {PILLARS.map((pillar, index) => (
-            <div
-              key={pillar.number}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { pauseAutoPlay(); scrollTo(index); }}}
-              onClick={() => { pauseAutoPlay(); scrollTo(index); }}
-              className={`
-                relative flex-shrink-0 w-[calc(100vw-3rem)] sm:w-[36rem] snap-center
-                rounded-3xl border p-6 sm:p-8 md:p-10
-                shadow-2xl backdrop-blur-sm
-                transition-all duration-500 cursor-pointer
-                ${index === activeIndex
-                  ? "border-[color:var(--theme-borders-system)]/20 scale-100 opacity-100 bg-[color:var(--theme-surface)]/90 z-20"
-                  : "border-[color:var(--theme-borders-system)]/5 scale-[0.95] opacity-50 bg-[color:var(--theme-surface)]/60 z-10"
-                }
-              `}
-            >
-              <div className="absolute -bottom-8 -right-8 h-32 w-32 rounded-full bg-[color:var(--theme-accent-periwinkle)]/5 blur-3xl" />
-              <div className="absolute -bottom-8 -left-8 h-24 w-24 rounded-full bg-[color:var(--theme-accent-periwinkle)]/10 blur-2xl" />
+          <CarouselContent className="-ml-3 md:-ml-4">
+            {PILLAR_ITEMS.map((pillar, index) => (
+              <CarouselItem
+                key={pillar.id}
+                className="pl-3 md:pl-4 basis-full sm:basis-1/2 lg:basis-1/3"
+              >
+                <div className="p-1 h-full">
+                  <Card className="h-full border border-white/10 bg-[color:var(--theme-surface)]/85 backdrop-blur-xl shadow-xl transition-all duration-300 hover:shadow-2xl hover:border-primary/30 hover:-translate-y-1">
+                    <CardContent className="flex flex-col justify-between p-6 sm:p-8 h-full min-h-[320px]">
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-4xl sm:text-5xl font-black tracking-tight text-[color:var(--theme-typography-main)] opacity-90">
+                            {pillar.number}
+                          </span>
+                          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary border border-primary/20 shadow-sm transition-transform duration-300 hover:scale-110">
+                            {pillar.icon}
+                          </div>
+                        </div>
+                        <h3 className="mt-6 text-xl font-black text-[color:var(--theme-typography-main)] tracking-tight">
+                          {pillar.title}
+                        </h3>
+                        <p className="mt-3 text-sm leading-relaxed text-[color:var(--theme-text-body)]">
+                          {pillar.description}
+                        </p>
+                      </div>
 
-              <div className="relative z-10">
-                <div className="mb-4 sm:mb-6 flex items-end justify-between">
-                  <span
-                    className={`font-display text-6xl sm:text-7xl md:text-8xl font-black italic bg-gradient-to-br ${PILLAR_NUM_GRADIENTS[index]} bg-clip-text text-transparent`}
-                    style={{ WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", lineHeight: "1.2", paddingRight: "0.1em", paddingTop: "0.1em" }}
-                  >
-                    {pillar.number}
-                  </span>
-                  <div className="mb-1 sm:mb-2 flex h-16 w-16 items-center justify-center rounded-2xl border border-[color:var(--theme-borders-system)]/10 bg-[color:var(--theme-accent-periwinkle)]/8 text-[color:var(--theme-accent-periwinkle)]/70">
-                    <pillar.Icon className="h-8 w-8" />
-                  </div>
+                      <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between text-xs font-semibold text-[color:var(--theme-typography-secondary)]">
+                        <span>Pillar {index + 1} of 5</span>
+                        <span className="h-1.5 w-1.5 rounded-full bg-primary/60" />
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+          <CarouselPrevious />
+          <CarouselNext />
+        </Carousel>
 
-                <h3 className="text-xl sm:text-2xl md:text-3xl font-black text-[color:var(--theme-typography-main)] leading-snug">
-                  {pillar.title}
-                </h3>
-
-                <p className="mt-3 sm:mt-4 text-sm sm:text-base md:text-lg leading-relaxed text-[color:var(--theme-text-body)]" style={{ textAlign: "justify" }}>
-                  {pillar.description}
-                </p>
-              </div>
-            </div>
-          ))}
+        {/* Indicators & Slide Counter */}
+        <div className="mt-8 flex flex-col items-center justify-center gap-3">
+          <div className="flex items-center gap-2">
+            {Array.from({ length: count || 5 }).map((_, index) => (
+              <button
+                key={index}
+                onClick={() => api?.scrollTo(index)}
+                className={`rounded-full transition-all duration-300 ${
+                  index === current - 1
+                    ? "h-2 w-8 bg-primary shadow-sm"
+                    : "h-2 w-2 bg-[color:var(--theme-borders-system)]/30 hover:bg-[color:var(--theme-borders-system)]/60"
+                }`}
+                aria-label={`Go to slide ${index + 1}`}
+              />
+            ))}
+          </div>
+          <div className="text-xs font-semibold tracking-wider uppercase text-[color:var(--theme-typography-secondary)]">
+            Slide {current} of {count}
+          </div>
         </div>
-      </div>
-
-      <div className="mt-6 flex items-center justify-center gap-6">
-        <button
-          onClick={() => { pauseAutoPlay(); prevSlide(); }}
-          className="group flex h-10 w-10 items-center justify-center rounded-full border border-[color:var(--theme-borders-system)]/10 bg-[color:var(--theme-surface)]/60 text-[color:var(--theme-typography-main)]/40 shadow-lg backdrop-blur-sm transition-all duration-500 hover:border-[color:var(--theme-borders-system)]/25 hover:bg-[color:var(--theme-surface)]/80 hover:text-[color:var(--theme-typography-main)]/80"
-          aria-label="Previous pillar"
-        >
-          <ChevronLeft className="h-4 w-4 transition-transform duration-500 group-hover:-translate-x-0.5" />
-        </button>
-
-        <div className="flex items-center gap-2">
-          {PILLARS.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => { pauseAutoPlay(); scrollTo(index); }}
-              className={`rounded-full transition-all duration-500 ${
-                index === activeIndex
-                  ? "h-2.5 w-8 bg-[color:var(--theme-typography-main)]/60"
-                  : "h-2 w-2 bg-[color:var(--theme-borders-system)]/15 hover:bg-[color:var(--theme-borders-system)]/30"
-              }`}
-              aria-label={`Go to pillar ${index + 1}`}
-            />
-          ))}
-        </div>
-
-        <button
-          onClick={() => { pauseAutoPlay(); nextSlide(); }}
-          className="group flex h-10 w-10 items-center justify-center rounded-full border border-[color:var(--theme-borders-system)]/10 bg-[color:var(--theme-surface)]/60 text-[color:var(--theme-typography-main)]/40 shadow-lg backdrop-blur-sm transition-all duration-500 hover:border-[color:var(--theme-borders-system)]/25 hover:bg-[color:var(--theme-surface)]/80 hover:text-[color:var(--theme-typography-main)]/80"
-          aria-label="Next pillar"
-        >
-          <ChevronRight className="h-4 w-4 transition-transform duration-500 group-hover:translate-x-0.5" />
-        </button>
       </div>
     </section>
   );

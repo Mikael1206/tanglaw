@@ -49,6 +49,8 @@ CREATE TABLE "User" (
     "name" TEXT,
     "passwordHash" TEXT,
     "emailVerified" BOOLEAN NOT NULL DEFAULT false,
+    "authProvider" TEXT,
+    "authProviderAccountId" TEXT,
     "yearLevel" TEXT,
     "program" TEXT,
     "gwa" DOUBLE PRECISION,
@@ -72,6 +74,9 @@ CREATE TABLE "Message" (
 
 -- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "User_authProvider_authProviderAccountId_key" ON "User"("authProvider", "authProviderAccountId");
 
 -- AddForeignKey
 ALTER TABLE "Message" ADD CONSTRAINT "Message_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
